@@ -16,7 +16,7 @@ timezone:
 
 title: Fadouse # the main title
 
-tagline: Fadouse Blog # it will display as the subtitle
+tagline: Fadouse's Blog # it will display as the subtitle
 
 description: >- # used by seo meta and the atom feed
   A Grade 10 student at Turing High School, who is passionate about cybersecurity and programming.
@@ -99,7 +99,7 @@ theme_mode: # [light | dark]
 cdn:
 
 # the avatar on sidebar, support local or CORS resources
-avatar:
+avatar: https://avatars.githubusercontent.com/u/83526586
 
 # The URL of the site-wide social preview image used in SEO `og:image` meta tag.
 # It can be overridden by a customized `page.image` in front matter.
