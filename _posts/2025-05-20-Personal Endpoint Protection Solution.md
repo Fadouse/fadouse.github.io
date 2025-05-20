@@ -10,7 +10,7 @@ tags: [security, EDR, EPP]
 - [引言](#引言)
 - [威胁现状分析](#威胁现状分析)
 - [传统EPP/EDR的局限](#传统eppedr的局限)
-- [初步尝试](#多产品组合的探索)
+- [初步尝试](#初步尝试)
 - [Elastic + SentinelOne 组合实践](#elastic--sentinelone-组合实践)
 - [总结与展望](#总结与展望)
 
