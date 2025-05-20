@@ -32,9 +32,9 @@ tags: [security, EDR, EPP]
 
 ## 传统EPP/EDR的局限
 
-我已经初步尝试过各大 EDR 产品（SentinelOne、KNEXT（Kaspersky）、Deep Instinct、ESET Protect Advanced、Bitdefender），并发现大部分“传统 EDR 产品”并不能有效地在威胁阶段初期拦截威胁，只是单纯地记录行为并在后台生成告警或者指标，甚至客户端都没有任何提醒。
+我已经初步尝试过各大 EDR 产品（SentinelOne、KNEXT（Kaspersky）、Deep Instinct、ESET Protect Advanced、Bitdefender），并发现大部分“传统 EDR 产品”并不能有效地在威胁阶段初期拦截威胁，只是单纯地记录行为并在后台生成告警或者指标，甚至客户端都没有任何提醒（详细参考 [2024 MITRE Enterprise 测试](https://evals.mitre.org/results/enterprise?view=cohort&evaluation=er6&result_type=PROTECTION&scenarios=4)）。
 
-这对于个人或者无 24h 安全团队的公司并不有利，很有可能导致如勒索/窃密木马等软件已经运行并达成其入侵目的（详细参考 [2024 MITRE Enterprise 测试](https://evals.mitre.org/results/enterprise?view=cohort&evaluation=er6&result_type=PROTECTION&scenarios=4)），此时 EDR 已经无力回天（无回滚或者 VSS 备份的 EDR 产品），导致文件无法恢复，窃密成功，造成个人/企业财产威胁。
+这对于个人或者无 24h 安全团队的公司并不有利，很有可能导致如勒索/窃密木马等软件已经运行并达成其入侵目的，此时 EDR 已经无力回天（无回滚或者无 VSS 备份的 EDR 产品），导致文件无法恢复，窃密成功，造成个人/企业财产威胁。
 
 因此，我们需要 EPP 和 EDR 都强大的防护解决方案，不应仅在后台记录，而应该即时拦截并自动回滚威胁对系统的操作，尽可能减少威胁对系统的影响。但我发现貌似单个解决方案都无法彻底满足以上要求。
 
