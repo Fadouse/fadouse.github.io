@@ -45,4 +45,4 @@ NtQueryInformationWorkerFactory(
 
 我们并不确定我们的shellcode何事执行，这是因为我们只是将Shellcode‘加入’到线程池中，并没有立刻执行代码。
 
-
+> 持续更新中....
