@@ -1,11 +1,11 @@
 ---
-title: PoolParty Injection Learning
+title: PoolParty Injection Learning Note
 date: 2025-05-21
 categories: [security, injection]
 tags: [security, injection]
 ---
 
-记录学习Poolparty注入技术 - 2025-5-21
+记录学习Poolparty注入技术的笔记 - 2025-5-21
 
 poolparty，一种只需要在远程线程中分配和写入操作，而无需执行操作的注入技术，其核心是利用了windows的线程池作为攻击对象
 由于其并没有直接执行shellcode，所以大部分edr/av无法检测（当时，现在就不一定了）
