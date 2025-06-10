@@ -1,6 +1,7 @@
 ---
 title: PoolParty Injection Learning Note
 date: 2025-05-21
+update: 2025-6-10
 categories: [security, injection]
 tags: [security, injection]
 ---
