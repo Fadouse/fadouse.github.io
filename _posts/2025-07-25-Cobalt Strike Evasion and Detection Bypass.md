@@ -23,7 +23,6 @@ The reverse‑proxy layer enforces:
 
 1. *SNI whitelisting* – only requests bearing the expected TLS server name pass through.
 2. *User‑Agent whitelisting* – a narrow set of UA strings mimicking legitimate browser traffic.
-3. *Geo‑restrictions (optional)* – further limits access to specific regions if required.
 
 Example Nginx configuration:
 
