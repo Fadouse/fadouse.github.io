@@ -14,8 +14,8 @@ Hello! I am a Alevel student, currently preparing for my Alevel exams. My main i
 
 ## 技能与经历 | Skills & Experience
 
-- 个人具有多种主流EDR/XDR产品的配置/运维/使用经验，包括 Bitdefender GZ、Elastic、SentinelOne、Crowdstrike、Microsoft Defender For Endpoint 等。
-- I have hands-on experience with major EDR/XDR solutions such as Bitdefender GZ, Elastic, SentinelOne, Crowdstrike and MDE.
+- 个人具有多种主流EDR/XDR产品的配置/运维/使用经验，包括 Bitdefender GZ、Elastic、SentinelOne、Crowdstrike、Paloalto Cortex、Microsoft Defender For Endpoint 等。
+- I have hands-on experience with major EDR/XDR solutions such as Bitdefender GZ, Elastic, SentinelOne, Crowdstrike, Paloalto Cortex and MDE.
 - 作为一名OIER，参加过 USACO、蓝桥杯、NOIP、NOI、ACSL 等。
 - As an OIer, I have participated in competitions like USACO, Lanqiao Cup, NOIP, NOI, and ACSL.
 
