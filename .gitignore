@@ -25,3 +25,10 @@ package-lock.json
 # Misc
 _sass/vendors
 assets/js/dist
+
+# Rust blog build outputs
+/target/
+/dist/
+
+# Project development environment
+/.direnv/

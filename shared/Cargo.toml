@@ -1,0 +1,10 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+unicode-normalization = "0.1"
+unicode-segmentation = "1.12"
+percent-encoding = "2.3"
