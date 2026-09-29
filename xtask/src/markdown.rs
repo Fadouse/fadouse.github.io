@@ -14,13 +14,23 @@ pub struct RenderedMarkdown {
     pub text: String,
 }
 
-pub fn escape(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
+pub use shared::escape_html as escape;
+
+fn task_label(events: &[Event<'_>]) -> String {
+    let mut label = String::new();
+    for event in events {
+        match event {
+            Event::End(TagEnd::Paragraph | TagEnd::Item) | Event::Start(Tag::List(_)) => break,
+            Event::Text(value) | Event::Code(value) => label.push_str(value),
+            Event::SoftBreak | Event::HardBreak => label.push(' '),
+            _ => {}
+        }
+    }
+    if label.trim().is_empty() {
+        "Task".into()
+    } else {
+        label.trim().to_owned()
+    }
 }
 
 fn heading_id(text: &str, used: &mut HashSet<String>) -> String {
@@ -85,6 +95,16 @@ pub fn render(source: &str, media_dir: &Path) -> Result<RenderedMarkdown> {
 
     while cursor < events.len() {
         match &events[cursor] {
+            Event::TaskListMarker(checked) => {
+                output.push(Event::Html(
+                    format!(
+                        "<input type=\"checkbox\" disabled{} aria-label=\"{}\">",
+                        if *checked { " checked" } else { "" },
+                        escape(&task_label(&events[cursor + 1..]))
+                    )
+                    .into(),
+                ));
+            }
             Event::Start(Tag::Heading { level, .. }) => {
                 let level = (*level as u8).max(2);
                 let start = cursor + 1;
@@ -199,6 +219,7 @@ mod tests {
         assert!(rendered.content.html.contains("data-copy=\"code\""));
         assert!(rendered.content.html.contains("syntax-"));
         assert!(rendered.content.html.contains("checkbox"));
+        assert!(rendered.content.html.contains("aria-label=\"Done\""));
         assert!(rendered.content.html.contains("footnote"));
         assert!(!rendered.content.html.contains("<script"));
     }

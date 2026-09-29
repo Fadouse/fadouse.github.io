@@ -119,7 +119,6 @@ fn parse_post(source: &str, media_dir: &Path) -> Result<Option<CompiledPost>> {
             description,
             tags,
             lang: front.lang,
-            content_url: String::new(),
         },
         content: rendered.content,
         search,

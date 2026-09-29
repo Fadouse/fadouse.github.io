@@ -1,6 +1,8 @@
+mod assets;
 mod content;
 mod markdown;
 mod output;
+mod render;
 
 use std::{
     env, fs,

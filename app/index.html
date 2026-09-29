@@ -8,11 +8,15 @@
     <link data-trunk rel="copy-file" href="favicon.svg">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/feed.xml">
-    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int" data-target-path="assets">
-    <script id="site-bootstrap" type="application/json">{"catalog_url":"/catalog.json"}</script>
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --converge" data-target-path="assets">
+    <script>
+      try {
+        const theme = localStorage.getItem("theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
-    <div id="app"><p class="boot-message" role="status">Loading…</p></div>
-    <noscript><p class="boot-message">Please enable JavaScript to read this site.</p></noscript>
+    <div id="app">__BLOG_CONTENT__</div>
   </body>
 </html>

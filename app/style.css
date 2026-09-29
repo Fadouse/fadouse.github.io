@@ -20,7 +20,7 @@
     color-scheme: dark;
     --background: #111111;
     --text: #e8e8e8;
-    --muted: #a3a3a3;
+    --muted: #b3b3b3;
     --line: #333333;
     --surface: #1b1b1b;
   }
@@ -30,7 +30,7 @@
   color-scheme: dark;
   --background: #111111;
   --text: #e8e8e8;
-  --muted: #a3a3a3;
+  --muted: #b3b3b3;
   --line: #333333;
   --surface: #1b1b1b;
 }
@@ -177,6 +177,21 @@ small, time, summary {
   margin-left: auto;
 }
 
+.shortcut {
+  font: inherit;
+  font-size: var(--body-size);
+  line-height: 1.2;
+  margin-left: 12px;
+  padding: 3px 6px;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, var(--line) 35%, transparent);
+}
+
+.shortcut, .tag-prefix {
+  color: color-mix(in srgb, var(--muted) 80%, var(--background));
+  background: color-mix(in srgb, var(--surface) 65%, var(--background));
+}
+
 .page {
   flex: 1;
   min-width: 0;
@@ -203,24 +218,7 @@ small, time, summary {
   padding-bottom: 20px;
 }
 
-.section-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  text-decoration: none;
-}
-
-.section-link:hover, .section-link:focus-visible {
-  color: var(--text);
-  text-decoration: underline;
-}
-
-.section-link span {
-  display: inline-block;
-}
-
-.section-heading p, .muted, .post-date, .post-tags, .site-footer {
+.section-heading p, .muted, .post-date, .post-description, .post-tags, .site-footer {
   color: var(--muted);
 }
 
@@ -249,6 +247,25 @@ small, time, summary {
 .post-date {
   padding-top: 3px;
   font-variant-numeric: tabular-nums;
+}
+
+.post-row:hover, .post-row:focus-within {
+  background-color: var(--surface);
+}
+
+.post-row:hover .post-title a, .post-row:focus-within .post-title a {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.tag-prefix {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25em;
+  height: 1.25em;
+  margin-right: 6px;
+  border-radius: 2px;
+  line-height: 1;
 }
 
 .post-title a {
@@ -575,7 +592,11 @@ code, pre, kbd {
   align-items: center;
   gap: 20px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.search-field:focus-within {
+  border-color: var(--text);
 }
 
 .search-field input {
@@ -584,7 +605,7 @@ code, pre, kbd {
   min-height: 44px;
   border: 0;
   background: transparent;
-  outline-offset: 0;
+  outline: none;
 }
 
 .search-field input::placeholder {
@@ -675,12 +696,6 @@ mark {
   top: 12px;
 }
 
-.boot-message {
-  margin: 64px auto;
-  width: min(1040px, calc(100% - 40px));
-  color: var(--muted);
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -761,6 +776,10 @@ mark {
     margin-left: 0;
   }
 
+  .shortcut {
+    display: none;
+  }
+
   .page {
     padding: 40px 0 64px;
   }
@@ -785,12 +804,20 @@ mark {
 }
 
 @media (pointer: coarse) {
+  .shortcut {
+    display: none;
+  }
+
   .post-tags a {
     min-height: 44px;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .post-row, .post-title a {
+    transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+  }
+
   .brand {
     transition:
       font-size var(--layout-duration) var(--ease-out),

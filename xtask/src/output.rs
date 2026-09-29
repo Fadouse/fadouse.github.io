@@ -3,10 +3,15 @@ use std::{fs, path::Path};
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::Serialize;
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use shared::{Catalog, page_metadata, tag_path};
 
-use crate::{content::Content, markdown::escape};
+use crate::{
+    content::{CompiledPost, Content},
+    markdown::escape,
+    render,
+};
 
 fn hashed_json(dist: &Path, name: &str, value: &impl Serialize) -> Result<String> {
     let bytes = serde_json::to_vec(value)?;
@@ -16,7 +21,7 @@ fn hashed_json(dist: &Path, name: &str, value: &impl Serialize) -> Result<String
     Ok(url)
 }
 
-fn page_shell(template: &str, catalog: &Catalog, path: &str) -> String {
+fn page_shell(template: &str, catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
     let metadata = page_metadata(catalog, path);
     let robots = if metadata.noindex {
         "noindex,follow"
@@ -34,13 +39,41 @@ fn page_shell(template: &str, catalog: &Catalog, path: &str) -> String {
             "website"
         },
     );
-    if let Some(post) = catalog.posts.iter().find(|post| post.path() == path) {
+    let mut structured = if let Some(post) = catalog.posts.iter().find(|post| post.path() == path) {
         head.push_str(&format!(
-            "<link rel=\"preload\" as=\"fetch\" href=\"{}\" crossorigin>\n",
-            post.content_url
+            "<meta data-page-meta property=\"article:published_time\" content=\"{}T00:00:00Z\">",
+            post.date
         ));
+        if let Some(date) = &post.updated {
+            head.push_str(&format!("<meta data-page-meta property=\"article:modified_time\" content=\"{date}T00:00:00Z\">"));
+        }
+        let mut value = json!({"@context":"https://schema.org", "@type":"BlogPosting", "headline":post.title, "description":post.description, "url":metadata.canonical, "mainEntityOfPage":{"@type":"WebPage","@id":metadata.canonical}, "datePublished":post.date, "dateModified":post.updated.as_ref().unwrap_or(&post.date)});
+        if let Some(lang) = &post.lang {
+            value["inLanguage"] = json!(lang);
+        }
+        if let Some(author) = catalog
+            .site
+            .author
+            .as_ref()
+            .filter(|name| !name.trim().is_empty())
+        {
+            value["author"] =
+                json!({"@type":"Person","name":author,"url":format!("{}/about/",catalog.site.url)});
+        }
+        value
+    } else {
+        json!({"@context":"https://schema.org", "@type":if path == "/" { "WebSite" } else { "CollectionPage" }, "name":metadata.title, "description":metadata.description, "url":metadata.canonical})
+    };
+    if path == "/about/" {
+        structured["@type"] = json!("AboutPage");
     }
-    template.replace("</head>", &format!("{head}</head>"))
+    head.push_str(&format!("<meta data-page-meta property=\"og:site_name\" content=\"{}\"><script data-page-meta type=\"application/ld+json\">{}</script>", escape(&catalog.site.title), structured.to_string().replace('<', "\\u003c")));
+    template
+        .replace("</head>", &format!("{head}</head>"))
+        .replace(
+            "__BLOG_CONTENT__",
+            &render::frame(catalog, path, &render::page(catalog, posts, path)),
+        )
 }
 
 fn write_route(dist: &Path, path: &str, html: &str) -> Result<()> {
@@ -76,11 +109,11 @@ pub fn finish(
 ) -> Result<()> {
     fs::create_dir_all(dist.join("assets"))?;
     content.site.url = site_url.trim_end_matches('/').to_owned();
-    for post in &mut content.posts {
-        post.summary.content_url =
-            hashed_json(dist, &format!("post-{}", post.summary.slug), &post.content)?;
-    }
-    let search: Vec<_> = content.posts.iter().map(|post| &post.search).collect();
+    let search: Vec<_> = content
+        .posts
+        .iter()
+        .map(|post| shared::search::SearchEntry::from(&post.search))
+        .collect();
     let search_url = hashed_json(dist, "search", &search)?;
     let catalog = Catalog {
         site: content.site,
@@ -93,15 +126,10 @@ pub fn finish(
         search_url,
         preview,
     };
-    let catalog_url = hashed_json(dist, "catalog", &catalog)?;
-    let template = fs::read_to_string(dist.join("index.html"))?
-        .replace("/catalog.json", &catalog_url)
-        .replace(
-            "</head>",
-            &format!(
-                "<link rel=\"preload\" as=\"fetch\" href=\"{catalog_url}\" crossorigin></head>"
-            ),
-        );
+    let mut template = fs::read_to_string(dist.join("index.html"))?;
+    if std::env::var("TRUNK_PROFILE").as_deref() == Ok("release") {
+        template = crate::assets::optimize(dist, template)?;
+    }
     let mut routes = vec![
         "/".to_owned(),
         "/archive/".into(),
@@ -112,11 +140,15 @@ pub fn finish(
     routes.extend(catalog.posts.iter().map(|post| post.path()));
     routes.extend(catalog.tags.iter().map(|tag| tag_path(&tag.name)));
     for route in &routes {
-        write_route(dist, route, &page_shell(&template, &catalog, route))?;
+        write_route(
+            dist,
+            route,
+            &page_shell(&template, &catalog, &content.posts, route),
+        )?;
     }
     fs::write(
         dist.join("404.html"),
-        page_shell(&template, &catalog, "/404/"),
+        page_shell(&template, &catalog, &content.posts, "/404/"),
     )?;
 
     let mut feed = format!(
@@ -138,9 +170,23 @@ pub fn finish(
     feed.push_str("</channel></rss>");
     fs::write(dist.join("feed.xml"), feed)?;
     let mut sitemap = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">".to_owned();
-    for route in routes.iter().filter(|route| route.as_str() != "/search/") {
+    for route in routes.iter().filter(|route| {
+        route.as_str() != "/search/"
+            && !(route.as_str() == "/about/" && catalog.site.about.trim().is_empty())
+    }) {
+        let modified = catalog
+            .posts
+            .iter()
+            .find(|post| post.path() == *route)
+            .map(|post| {
+                format!(
+                    "<lastmod>{}</lastmod>",
+                    post.updated.as_ref().unwrap_or(&post.date)
+                )
+            })
+            .unwrap_or_default();
         sitemap.push_str(&format!(
-            "<url><loc>{}</loc></url>",
+            "<url><loc>{}</loc>{modified}</url>",
             escape(&format!("{site_url}{route}"))
         ));
     }
@@ -155,14 +201,14 @@ pub fn finish(
         },
     )?;
     let preview_header = if preview {
-        "  X-Robots-Tag: noindex\n"
+        "/*\n  X-Robots-Tag: noindex\n\n"
     } else {
         ""
     };
     fs::write(
         dist.join("_headers"),
         format!(
-            "/*\n  Cache-Control: public, max-age=0, must-revalidate\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n{preview_header}\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n"
+            "{preview_header}/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n"
         ),
     )?;
     copy_media(&root.join("content/media"), &dist.join("media"))?;
