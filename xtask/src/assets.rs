@@ -43,8 +43,8 @@ pub fn build(root: &Path, dist: &Path, template: String) -> Result<String> {
         .map_or_else(|| root.join("target"), |path| root.join(path));
     let wasm = fs::read(target.join("wasm32-unknown-unknown/release/app.wasm"))?;
     ensure!(
-        wasm.len() < 20_000,
-        "Compiled WASM is {} bytes; it must stay below 20,000 bytes",
+        wasm.len() < 15_000,
+        "Compiled WASM is {} bytes; it must stay below 15,000 bytes",
         wasm.len()
     );
     // Ship the compiler output byte-for-byte: no WASM rewriting or compression.

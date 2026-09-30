@@ -8,6 +8,7 @@ mod toc;
 
 use browser::{Arg, Js, Key, document, location, query, required, window};
 use core::cell::{Cell, UnsafeCell};
+use core::mem::MaybeUninit;
 
 #[cfg(target_arch = "wasm32")]
 #[global_allocator]
@@ -38,13 +39,13 @@ struct App {
     search: search::Search,
     toc: toc::Toc,
 }
-struct BrowserApp(UnsafeCell<Option<App>>);
+struct BrowserApp(UnsafeCell<MaybeUninit<App>>);
 // One main-thread instance is initialized before any callbacks; subsequent
 // mutations use Cell/RefCell and never replace the App.
 unsafe impl Sync for BrowserApp {}
-static APP: BrowserApp = BrowserApp(UnsafeCell::new(None));
+static APP: BrowserApp = BrowserApp(UnsafeCell::new(MaybeUninit::uninit()));
 fn app() -> &'static App {
-    unsafe { (*APP.0.get()).as_ref().unwrap() }
+    unsafe { (*APP.0.get()).assume_init_ref() }
 }
 
 fn page_read(doc: &Js) -> Js {
@@ -55,10 +56,7 @@ fn page_read(doc: &Js) -> Js {
     let nodes = doc.call(Key::QuerySelectorAll, &[Arg::literal("[data-page-meta]")]);
     let metadata = doc.call(Key::CreateDocumentFragment, &[]);
     for i in 0..nodes.number(Key::Length) as u32 {
-        metadata.call(
-            Key::AppendChild,
-            &[nodes.call(Key::Item, &[Arg::integer(i)]).duplicate().arg()],
-        );
+        metadata.call_void(Key::Append, nodes.item(i).duplicate().arg());
     }
     Js::array(&[content.duplicate().arg(), metadata.arg()])
 }
@@ -68,7 +66,7 @@ pub extern "C" fn start() {
     browser::mark("wasm-start");
     let map = || Js::construct(Key::Map, &[]).retain();
     unsafe {
-        *APP.0.get() = Some(App {
+        (*APP.0.get()).write(App {
             path: Cell::new(location().get(Key::Pathname).retain()),
             navigation: Cell::new(0),
             next: Cell::new(0),
@@ -93,22 +91,8 @@ pub extern "C" fn start() {
     window()
         .get(Key::History)
         .set(Key::ScrollRestoration, Arg::literal("manual"));
-    for (kind, name) in ["click", "keydown"].iter().enumerate() {
-        document().listen(name, kind as u32);
-    }
-    for (kind, name) in ["popstate", "scroll"].iter().enumerate() {
-        window().listen(name, kind as u32 + 2);
-    }
-    window().listen("resize", 8);
-    for name in ["wheel", "pointerdown"] {
-        window().listen(name, 9);
-    }
-    for (kind, name) in ["input", "submit", "compositionstart", "compositionend"]
-        .iter()
-        .enumerate()
-    {
-        document().listen(name, kind as u32 + 4);
-    }
+    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0");
+    window().listen(b"\x02popstate\0\x03scroll\0\x08resize\0\x09wheel\0\x09pointerdown\0");
     app().search.on_page();
     app().toc.on_page();
     browser::mark("app-mounted");
@@ -213,7 +197,7 @@ impl App {
         token
     }
     fn set_path(&self, path: Js) {
-        self.path.replace(path.retain()).release();
+        self.path.set(self.path.get().replacing(path));
     }
     fn record_scroll(&self) {
         self.positions.call(
@@ -272,22 +256,22 @@ impl App {
             ],
         );
         let path = url.get(Key::Pathname);
-        if !url.get(Key::Origin).same(&location().get(Key::Origin))
-            || !path.call(Key::EndsWith, &[Arg::literal("/")]).truthy()
+        if !url.get(Key::Origin).same(location().get(Key::Origin))
+            || !path.call_boolean(Key::EndsWith, Arg::literal("/"))
         {
             return;
         }
-        if path.same(&location().get(Key::Pathname)) && !url.get(Key::Hash).equal_text("") {
+        if path.same(location().get(Key::Pathname)) && !url.get(Key::Hash).equal_text("") {
             if !anchor.closest(".toc").is_null() && scroll_to_hash(&url, !motion::reduced()) {
                 event.call(Key::PreventDefault, &[]);
-                if !url.get(Key::Href).same(&location().get(Key::Href)) {
+                if !url.get(Key::Href).same(location().get(Key::Href)) {
                     push_url(&url);
                 }
             }
             return;
         }
         event.call(Key::PreventDefault, &[]);
-        if !url.get(Key::Href).same(&location().get(Key::Href)) {
+        if !url.get(Key::Href).same(location().get(Key::Href)) {
             self.navigate(url, true, false);
         }
     }
@@ -321,7 +305,7 @@ impl App {
         if !contents.is_null() {
             self.pages
                 .call(Key::Get, &[self.path.get().arg()])
-                .call(Key::At, &[Arg::integer(0)])
+                .item(0)
                 .query(".mobile-toc")
                 .set(Key::Open, contents.get(Key::Open).arg());
         }
@@ -339,10 +323,10 @@ impl App {
                 value.numeric()
             }
         };
-        if push && !url.get(Key::Href).same(&location().get(Key::Href)) {
+        if push && !url.get(Key::Href).same(location().get(Key::Href)) {
             push_url(&url);
         }
-        if self.path.get().same(&path) && !cached.is_null() {
+        if self.path.get().same(path) && !cached.is_null() {
             required("#main-content").remove_attr("aria-busy");
             self.search.on_page();
             if focus_search {
@@ -376,7 +360,7 @@ impl App {
             return;
         }
         self.requests.call(Key::Delete, &[Arg::integer(token)]);
-        let url = request.call(Key::At, &[Arg::integer(0)]);
+        let url = request.item(0);
         let path = url.get(Key::Pathname);
         let current = self.navigation.get() == token;
         // A reader may keep scrolling while the next page is downloading.
@@ -389,18 +373,17 @@ impl App {
                 self.commit(
                     &url,
                     &page,
-                    request.call(Key::At, &[Arg::integer(1)]).numeric(),
-                    request.call(Key::At, &[Arg::integer(2)]).truthy(),
+                    request.item(1).numeric(),
+                    request.item(2).truthy(),
                 );
             }
         } else if current {
             self.set_path(path);
             update_header(&path);
-            motion::replace_html(
-                &required("#page-content"),
-                "<div class=\"error-state\" role=\"alert\"><h1>Unable to load this page.</h1><p>Check your connection and try again.</p><button type=\"button\" data-retry>Retry ↗</button></div>",
-                true,
-            );
+            let current = required("#page-content");
+            let incoming = current.call(Key::CloneNode, &[]);
+            incoming.call_void(Key::Append, browser::template("#page-error").arg());
+            motion::replace(&current, &incoming, true);
             required("#main-content").remove_attr("aria-busy");
             required("#navigation-status").set_text("Unable to load this page.");
             restore_position(&url, 0.0);
@@ -413,20 +396,17 @@ impl App {
         update_header(&path);
         motion::replace(
             &required("#page-content"),
-            &page.call(Key::At, &[Arg::integer(0)]).duplicate(),
+            &page.item(0).duplicate(),
             position == 0.0 && url.get(Key::Hash).equal_text(""),
         );
         required("#main-content").remove_attr("aria-busy");
         let nodes = document().call(Key::QuerySelectorAll, &[Arg::literal("[data-page-meta]")]);
         for i in 0..nodes.number(Key::Length) as u32 {
-            nodes
-                .call(Key::Item, &[Arg::integer(i)])
-                .call(Key::Remove, &[]);
+            nodes.item(i).call(Key::Remove, &[]);
         }
-        document().get(Key::Head).call(
-            Key::AppendChild,
-            &[page.call(Key::At, &[Arg::integer(1)]).duplicate().arg()],
-        );
+        document()
+            .get(Key::Head)
+            .call_void(Key::Append, page.item(1).duplicate().arg());
         required("#navigation-status").set(Key::TextContent, document().get(Key::Title).arg());
         restore_position(url, position);
         self.search.on_page();
@@ -482,18 +462,19 @@ fn update_header(path: &Js) {
     );
     let heading = required("#brand-heading");
     heading.set_attr("role", if home { "heading" } else { "none" });
+    let brand = required(".brand");
     if home {
         heading.set_attr("aria-level", "1");
-        required(".brand").set_attr("aria-current", "page");
+        brand.set_attr("aria-current", "page");
     } else {
         heading.remove_attr("aria-level");
-        required(".brand").remove_attr("aria-current");
+        brand.remove_attr("aria-current");
     }
     let links = document().call(Key::QuerySelectorAll, &[Arg::literal("[data-nav]")]);
     for i in 0..links.number(Key::Length) as u32 {
-        let link = links.call(Key::Item, &[Arg::integer(i)]);
+        let link = links.item(i);
         let href = link.call(Key::GetAttribute, &[Arg::literal("href")]);
-        if !href.equal_text("/") && path.call(Key::StartsWith, &[href.arg()]).truthy() {
+        if !href.equal_text("/") && path.call_boolean(Key::StartsWith, href.arg()) {
             link.set_attr("aria-current", "page");
         } else {
             link.remove_attr("aria-current");
@@ -509,7 +490,7 @@ fn push_url(url: &Js) {
 fn scroll_to_hash(url: &Js, smooth: bool) -> bool {
     let mut hash = url.get(Key::Hash);
     let has_hash = !hash.equal_text("");
-    while hash.call(Key::StartsWith, &[Arg::literal("#")]).truthy() {
+    while hash.call_boolean(Key::StartsWith, Arg::literal("#")) {
         hash = hash.call(Key::Slice, &[Arg::integer(1)]);
     }
     if has_hash && let Ok(id) = window().try_call(Key::DecodeURIComponent, &[hash.arg()]) {

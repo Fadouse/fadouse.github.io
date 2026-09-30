@@ -70,8 +70,8 @@ impl Toc {
             Key::QuerySelectorAll,
             &[Arg::literal(".prose [id]:has(> .heading-anchor)")],
         );
-        self.links.replace(links.retain()).release();
-        self.headings.replace(headings.retain()).release();
+        self.links.set(self.links.get().replacing(links));
+        self.headings.set(self.headings.get().replacing(headings));
         self.count.set(count);
         self.active.set(u32::MAX);
         self.request();
@@ -123,7 +123,7 @@ impl Toc {
                 let top = self
                     .headings
                     .get()
-                    .call(Key::Item, &[Arg::integer(middle)])
+                    .item(middle)
                     .call(Key::GetBoundingClientRect, &[])
                     .number(Key::Top);
                 if top <= 64.0 {
@@ -139,7 +139,7 @@ impl Toc {
         if previous == active && !refresh {
             return;
         }
-        let link = self.links.get().call(Key::Item, &[Arg::integer(active)]);
+        let link = self.links.get().item(active);
         // Offsets use the sidebar's content coordinates, including when it
         // scrolls. Read before writing, only when selection or layout changes.
         let top = link.number(Key::OffsetTop) + 4.0;
@@ -162,12 +162,12 @@ impl Toc {
             if previous != u32::MAX {
                 self.links
                     .get()
-                    .call(Key::Item, &[Arg::integer(offset + previous)])
+                    .item(offset + previous)
                     .remove_attr("aria-current");
             }
             self.links
                 .get()
-                .call(Key::Item, &[Arg::integer(offset + active)])
+                .item(offset + active)
                 .set_attr("aria-current", "location");
         }
     }

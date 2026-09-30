@@ -1,14 +1,10 @@
 use crate::{
     INDEX_RESPONSE,
-    browser::{self, Arg, Js, Key, query, required, window},
+    browser::{self, Arg, Js, Key, document, query, required, template, window},
     motion, target,
 };
-use alloc::{string::String, vec::Vec};
 use core::{cell::RefCell, ops::Range};
-use shared::{
-    append_bytes, escape_html_into_bytes,
-    search::{BorrowedSpans, Index, SearchText, highlight_bytes, search_terms, terms},
-};
+use shared::search::{BorrowedSpans, Index, SearchText, highlight_bytes, search_terms, terms};
 
 #[derive(Default)]
 struct State {
@@ -16,9 +12,10 @@ struct State {
     loading: bool,
     failed: bool,
     composing: bool,
-    query: String,
-    key: String,
-    html: Vec<u8>,
+    query: Js,
+    key: Js,
+    layout: Js,
+    entry: Js,
 }
 
 #[derive(Default)]
@@ -35,15 +32,27 @@ impl Search {
             Key::UrlSearchParams,
             &[browser::location().get(Key::Search).arg()],
         );
-        let value = params.call(Key::Get, &[Arg::literal("q")]).text();
-        input.set(Key::Value, Arg::string(&value));
+        let value = params.call(Key::Get, &[Arg::literal("q")]);
+        let value = if value.is_null() {
+            Js::from_text("")
+        } else {
+            value
+        };
+        input.set(Key::Value, value.arg());
         let load = {
             let mut state = self.0.borrow_mut();
-            state.query = value;
+            state.query.replace(value);
             state.composing = false;
+            state
+                .layout
+                .replace(required("#search-layout").get(Key::Content));
+            state
+                .entry
+                .replace(required("#search-entry").get2(Key::Content, Key::FirstChild));
             if !container.has_attr("data-search-ready") {
-                state.html = container.get(Key::InnerHTML).text().into_bytes();
-                state.key = "empty".into();
+                state
+                    .key
+                    .replace(Js::from_text("Start with a word or phrase."));
             }
             let load = state.entries.is_none() && !state.loading;
             if load {
@@ -55,8 +64,9 @@ impl Search {
         container.set_attr("data-search-ready", "");
         self.render();
         if load {
-            let url = required(".site-shell").attr("data-search-url");
-            match window().try_call(Key::Fetch, &[Arg::string(&url)]) {
+            let url =
+                required(".site-shell").call(Key::GetAttribute, &[Arg::literal("data-search-url")]);
+            match window().try_call(Key::Fetch, &[url.arg()]) {
                 Ok(promise) => promise.subscribe(INDEX_RESPONSE, 0),
                 Err(_) => self.loaded(None),
             }
@@ -81,8 +91,7 @@ impl Search {
             4 if input && !self.0.borrow().composing => self.update_query(),
             5 if target
                 .get(Key::ClassList)
-                .call(Key::Contains, &[Arg::literal("search-form")])
-                .truthy() =>
+                .call_boolean(Key::Contains, Arg::literal("search-form")) =>
             {
                 event.call(Key::PreventDefault, &[]);
                 self.update_query();
@@ -96,22 +105,22 @@ impl Search {
         }
     }
     fn update_query(&self) {
-        let value = required("#search-input").get(Key::Value).text();
-        if value == self.0.borrow().query {
+        let value = required("#search-input").get(Key::Value);
+        if value.same(self.0.borrow().query) {
             return;
         }
         let url = browser::url();
         let params = url.get(Key::SearchParams);
-        if value.is_empty() {
+        if value.equal_text("") {
             params.call(Key::Delete, &[Arg::literal("q")]);
         } else {
-            params.call(Key::Set, &[Arg::literal("q"), Arg::string(&value)]);
+            params.call(Key::Set, &[Arg::literal("q"), value.arg()]);
         }
         window().get(Key::History).call(
             Key::ReplaceState,
             &[Arg::null(), Arg::literal(""), url.get(Key::Href).arg()],
         );
-        self.0.borrow_mut().query = value;
+        self.0.borrow_mut().query.replace(value);
         self.render();
     }
     fn render(&self) {
@@ -119,119 +128,133 @@ impl Search {
         if container.is_null() {
             return;
         }
-        let (html, transition) = {
+        let (incoming, transition) = {
             let mut state = self.0.borrow_mut();
-            let (key, html) = results(&state);
-            if html == state.html {
+            let (key, fragment) = results(&state);
+            let incoming = container.call(Key::CloneNode, &[]);
+            incoming.call_void(Key::Append, fragment.arg());
+            if container.call_boolean(Key::IsEqualNode, incoming.arg()) {
                 return;
             }
-            let transition = key != state.key;
-            state.key = key;
-            let text = Js::from_bytes(&html);
-            state.html = html;
-            (text, transition)
+            let transition = !key.same(state.key);
+            state.key.replace(key);
+            (incoming, transition)
         };
         if transition {
-            motion::replace_text(&container, &html, true);
+            motion::replace(&container, &incoming, true);
         } else {
-            container.set(Key::InnerHTML, html.arg());
+            // Templates have one or two root nodes. Repeating the only node
+            // moves it once and preserves any opacity animation on container.
+            container.call(
+                Key::ReplaceChildren,
+                &[
+                    incoming.get(Key::FirstChild).arg(),
+                    incoming.get(Key::LastChild).arg(),
+                ],
+            );
         }
     }
 }
 
+fn append_text(parent: Js, text: Arg<'_>) {
+    parent.call_void(Key::Append, text);
+}
+
 fn highlighted(
-    html: &mut Vec<u8>,
+    parent: Js,
     text: &SearchText<&str, BorrowedSpans<'_>>,
     terms: &[&str],
     range: Range<usize>,
 ) {
     for (part, matched) in highlight_bytes(text, terms, range) {
-        if matched {
-            append_bytes(html, b"<mark>");
-        }
-        escape_html_into_bytes(part, html);
-        if matched {
-            append_bytes(html, b"</mark>");
-        }
+        let target = if matched {
+            let mark = document().call(Key::CreateElement, &[Arg::literal("mark")]);
+            parent.call_void(Key::Append, mark.arg());
+            mark
+        } else {
+            parent
+        };
+        append_text(target, Arg::bytes(part));
     }
 }
 
-fn results(state: &State) -> (String, Vec<u8>) {
-    let query = Js::from_text(&state.query)
+fn message(state: &State, text: &'static str) -> (Js, Js) {
+    let fragment = state.layout.duplicate();
+    fragment.get(Key::LastChild).call(Key::Remove, &[]);
+    fragment.get(Key::FirstChild).set_text(text);
+    (Js::from_text(text), fragment)
+}
+
+fn results(state: &State) -> (Js, Js) {
+    let query = state
+        .query
         .call(Key::Normalize, &[Arg::literal("NFKC")])
         .call(Key::ToLowerCase, &[])
         .call(Key::ReplaceAll, &[Arg::literal("ς"), Arg::literal("σ")])
         .text();
     let terms = terms(&query);
     if terms.is_empty() {
-        return (
-            "empty".into(),
-            "<p class=\"muted\" role=\"status\">Start with a word or phrase.</p>"
-                .as_bytes()
-                .into(),
-        );
+        return message(state, "Start with a word or phrase.");
     }
     if state.failed {
-        return ("error".into(), "<div class=\"error-state\" role=\"alert\"><h2>Unable to load search.</h2><p>Check your connection and try again.</p><button type=\"button\" data-retry>Retry ↗</button></div>".as_bytes().into());
+        let fragment = template("#page-error");
+        let heading = document().call(Key::CreateElement, &[Arg::literal("h2")]);
+        heading.set_text("Unable to load search.");
+        fragment
+            .query("h1")
+            .call(Key::ReplaceWith, &[heading.arg()]);
+        return (Js::from_text("Unable to load search."), fragment);
     }
     let Some(entries) = &state.entries else {
-        return (
-            "loading".into(),
-            "<p class=\"muted\" role=\"status\">Loading…</p>"
-                .as_bytes()
-                .into(),
-        );
+        return message(state, "Loading…");
     };
     let entries = entries.entries();
     let hits = search_terms(entries, &terms);
     if hits.len() == 0 {
-        return (
-            "none".into(),
-            "<p class=\"muted\" role=\"status\">No results. Try another word.</p>"
-                .as_bytes()
-                .into(),
-        );
+        return message(state, "No results. Try another word.");
     }
-    let mut key = String::new();
-    let mut html = b"<p class=\"muted\" role=\"status\">".to_vec();
-    append_bytes(
-        &mut html,
-        browser::number_text(hits.len() as u32).as_bytes(),
-    );
-    append_bytes(
-        &mut html,
-        if hits.len() == 1 {
-            b" result"
-        } else {
-            b" results"
-        },
-    );
-    append_bytes(&mut html, b"</p><div class=\"search-results\">");
-    for hit in hits {
-        key.push_str(hit.entry.slug);
-        key.push('|');
-        append_bytes(
-            &mut html,
-            b"<article><h2 class=\"post-title\" dir=\"auto\"><a href=\"/posts/",
+    let key = Js::construct(Key::Array, &[]);
+    let fragment = state.layout.duplicate();
+    let count = window()
+        .call(Key::String, &[Arg::integer(hits.len() as u32)])
+        .call(
+            Key::Concat,
+            &[Arg::literal(if hits.len() == 1 {
+                " result"
+            } else {
+                " results"
+            })],
         );
-        escape_html_into_bytes(hit.entry.slug.as_bytes(), &mut html);
-        append_bytes(&mut html, b"/\">");
+    fragment
+        .get(Key::FirstChild)
+        .set(Key::TextContent, count.arg());
+    let results = fragment.get(Key::LastChild);
+    for hit in hits {
+        let entry = state.entry.duplicate();
+        let link = entry.get2(Key::FirstChild, Key::FirstChild);
+        let href = Js::from_text("/posts/").call(
+            Key::Concat,
+            &[Arg::string(hit.entry.slug), Arg::literal("/")],
+        );
+        link.set(Key::Href, href.arg());
+        key.call_void(Key::Push, href.arg());
         highlighted(
-            &mut html,
+            link,
             &hit.entry.title,
             &terms,
             0..hit.entry.title.text.len(),
         );
-        append_bytes(&mut html, b"</a></h2><p dir=\"auto\">");
+        let excerpt = entry.get(Key::LastChild);
         if hit.excerpt.start > 0 {
-            append_bytes(&mut html, "…".as_bytes());
+            append_text(excerpt, Arg::literal("…"));
         }
-        highlighted(&mut html, &hit.entry.body, &terms, hit.excerpt.clone());
+        highlighted(excerpt, &hit.entry.body, &terms, hit.excerpt.clone());
         if hit.excerpt.end < hit.entry.body.text.len() {
-            append_bytes(&mut html, "…".as_bytes());
+            append_text(excerpt, Arg::literal("…"));
         }
-        append_bytes(&mut html, b"</p></article>");
+        results.call_void(Key::Append, entry.arg());
     }
-    append_bytes(&mut html, b"</div>");
-    (key, html)
+    // The catalog restricts unique slugs to ASCII letters, digits and hyphens;
+    // joining their URLs therefore preserves the exact ordered result set.
+    (key.call(Key::Join, &[Arg::literal(",")]), fragment)
 }

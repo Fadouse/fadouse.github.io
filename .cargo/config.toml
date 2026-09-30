@@ -2,4 +2,4 @@
 xtask = "run --package xtask --"
 
 [target.wasm32-unknown-unknown]
-rustflags = ["-C", "link-arg=--compress-relocations", "-C", "link-arg=-zstack-size=16384"]
+rustflags = ["-C", "link-arg=--compress-relocations", "-C", "link-arg=-zstack-size=4096"]

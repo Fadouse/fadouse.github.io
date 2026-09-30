@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, collections::BinaryHeap, string::String, vec::Vec};
+use alloc::{string::String, vec::Vec};
 use core::ops::Range;
 
 #[derive(Clone, Debug)]
@@ -56,15 +56,19 @@ pub fn encode_index(entries: &[SearchEntry]) -> Vec<u8> {
 pub trait SpanList {
     fn len(&self) -> usize;
     fn span(&self, index: usize) -> [usize; 4];
+    fn at(&self, index: usize, column: usize) -> usize {
+        self.span(index)[column]
+    }
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn partition_point(&self, predicate: impl Fn([usize; 4]) -> bool) -> usize {
+    #[inline(never)]
+    fn partition_point(&self, column: usize, offset: usize) -> usize {
         let mut left = 0;
         let mut right = self.len();
         while left < right {
             let mid = left + (right - left) / 2;
-            if predicate(self.span(mid)) {
+            if self.at(mid, column) < offset {
                 left = mid + 1;
             } else {
                 right = mid;
@@ -94,6 +98,12 @@ impl SpanList for BorrowedSpans<'_> {
         let span: [u32; 4] = unsafe { core::ptr::read_unaligned(bytes.as_ptr().cast()) };
         span.map(|offset| u32::from_le(offset) as usize)
     }
+    fn at(&self, index: usize, column: usize) -> usize {
+        assert!(index < self.len() && column < 4);
+        // These bounds contain the entire unaligned u32 within one record.
+        let pointer = unsafe { self.0.as_ptr().add(index * 16 + column * 4) };
+        u32::from_le(unsafe { core::ptr::read_unaligned(pointer.cast()) }) as usize
+    }
 }
 type Entry<'a> = SearchEntry<&'a str, BorrowedSpans<'a>>;
 struct Reader<'a>(&'a [u8]);
@@ -101,43 +111,43 @@ struct Reader<'a>(&'a [u8]);
 // Boolean validation avoids constructing UTF-8 error reports that the index
 // loader never uses. Reject overlong encodings, surrogates and values > U+10FFFF.
 fn valid_utf8(bytes: &[u8]) -> bool {
-    let mut cursor = 0;
-    while cursor < bytes.len() {
-        let first = bytes[cursor];
-        if first < 0x80 {
-            cursor += 1;
-            continue;
-        }
-        if !(0xc2..=0xf4).contains(&first) {
-            return false;
-        }
-        let length = if first < 0xe0 {
-            2
-        } else if first < 0xf0 {
-            3
-        } else {
-            4
-        };
-        if length > bytes.len() - cursor {
-            return false;
-        }
-        let second = bytes[cursor + 1];
-        if (first == 0xe0 && second < 0xa0)
-            || (first == 0xed && second >= 0xa0)
-            || (first == 0xf0 && second < 0x90)
-            || (first == 0xf4 && second >= 0x90)
-        {
-            return false;
-        }
-        for byte in &bytes[cursor + 1..cursor + length] {
-            if byte & 0xc0 != 0x80 {
+    let mut remaining = 0;
+    let mut minimum = 0x80;
+    let mut maximum = 0xbf;
+    for &byte in bytes {
+        if remaining != 0 {
+            if byte < minimum || byte > maximum {
                 return false;
             }
+            remaining -= 1;
+            minimum = 0x80;
+            maximum = 0xbf;
+        } else if byte >= 0x80 {
+            if !(0xc2..=0xf4).contains(&byte) {
+                return false;
+            }
+            remaining = if byte < 0xe0 {
+                1
+            } else if byte < 0xf0 {
+                2
+            } else {
+                3
+            };
+            minimum = match byte {
+                0xe0 => 0xa0,
+                0xf0 => 0x90,
+                _ => 0x80,
+            };
+            maximum = match byte {
+                0xed => 0x9f,
+                0xf4 => 0x8f,
+                _ => 0xbf,
+            };
         }
-        cursor += length;
     }
-    true
+    remaining == 0
 }
+
 impl<'a> Reader<'a> {
     fn take(&mut self, length: usize) -> Option<&'a [u8]> {
         let (value, rest) = self.0.split_at_checked(length)?;
@@ -145,7 +155,9 @@ impl<'a> Reader<'a> {
         Some(value)
     }
     fn number(&mut self) -> Option<usize> {
-        Some(u32::from_le_bytes(self.take(4)?.try_into().ok()?) as usize)
+        let bytes = self.take(4)?;
+        // The checked field may be unaligned after preceding UTF-8 strings.
+        Some(u32::from_le(unsafe { core::ptr::read_unaligned(bytes.as_ptr().cast()) }) as usize)
     }
     fn string(&mut self) -> Option<&'a str> {
         let length = self.number()?;
@@ -181,12 +193,11 @@ impl<'a> Reader<'a> {
 // are borrowed from it instead of allocating each field in every article.
 pub struct Index {
     entries: Vec<Entry<'static>>,
-    _bytes: Box<[u8]>,
+    _bytes: Vec<u8>,
 }
 impl Index {
     pub fn new(bytes: Vec<u8>) -> Option<Self> {
-        let bytes = bytes.into_boxed_slice();
-        // The immutable Box keeps the allocation at a fixed address. These
+        // The immutable Vec keeps the allocation at a fixed address. These
         // internal views are dropped with Index and only exposed with the
         // lifetime of &self by entries(), never with their stored lifetime.
         let mut reader =
@@ -258,29 +269,29 @@ impl From<&crate::SearchDocument> for SearchEntry {
 
 impl<S: AsRef<str>, B: SpanList> SearchText<S, B> {
     fn source_offset(&self, offset: usize, end: bool) -> usize {
-        let index = self.spans.partition_point(|span| span[0] < offset);
+        let index = self.spans.partition_point(0, offset);
         if index == 0 {
             return offset;
         }
-        let [_, to, source_from, source_to] = self.spans.span(index - 1);
-        if offset < to {
-            if end { source_to } else { source_from }
-        } else {
-            source_to + (offset - to)
-        }
+        let to = self.spans.at(index - 1, 1);
+        let column = 2 + usize::from(end | (offset >= to));
+        self.spans.at(index - 1, column) + offset.saturating_sub(to)
     }
 
     fn is_grapheme_boundary(&self, offset: usize) -> bool {
-        let index = self.spans.partition_point(|span| span[2] < offset);
-        index == 0 || offset >= self.spans.span(index - 1)[3]
+        let index = self.spans.partition_point(2, offset);
+        index == 0 || offset >= self.spans.at(index - 1, 3)
     }
 
     fn excerpt(&self, terms: &[&str]) -> Range<usize> {
-        let first = terms
-            .iter()
-            .filter_map(|term| find(self.normalized.as_ref(), term))
-            .min()
-            .unwrap_or(0);
+        let mut first = usize::MAX;
+        for term in terms {
+            first = first.min(find_bytes(
+                self.normalized.as_ref().as_bytes(),
+                term.as_bytes(),
+            ));
+        }
+        let first = if first == usize::MAX { 0 } else { first };
         let first = self.source_offset(first, false);
         let bytes = self.text.as_ref().as_bytes();
         let before = &bytes[..first];
@@ -316,19 +327,24 @@ pub struct SearchHit<'a, S = String, B = Vec<[usize; 4]>> {
 // needle also start and end on character boundaries. Skip directly to its
 // first byte instead of linking the general-purpose str pattern machinery.
 pub fn find(text: &str, needle: &str) -> Option<usize> {
-    find_bytes(text.as_bytes(), needle.as_bytes())
+    let offset = find_bytes(text.as_bytes(), needle.as_bytes());
+    (offset != usize::MAX).then_some(offset)
 }
-fn find_bytes(bytes: &[u8], needle: &[u8]) -> Option<usize> {
-    let first = *needle.first()?;
-    let mut offset = 0;
-    while needle.len() <= bytes.len().saturating_sub(offset) {
-        offset += bytes[offset..].iter().position(|byte| *byte == first)?;
-        if bytes[offset..].starts_with(needle) {
-            return Some(offset);
+// A valid slice offset cannot equal usize::MAX. A scalar sentinel keeps the
+// shared scan in one register instead of returning an Option through memory.
+fn find_bytes(bytes: &[u8], needle: &[u8]) -> usize {
+    let Some(&first) = needle.first() else {
+        return usize::MAX;
+    };
+    let Some(last) = bytes.len().checked_sub(needle.len()) else {
+        return usize::MAX;
+    };
+    for offset in 0..=last {
+        if bytes[offset] == first && &bytes[offset..offset + needle.len()] == needle {
+            return offset;
         }
-        offset += 1;
     }
-    None
+    usize::MAX
 }
 
 // Unicode White_Space, matching str::split_whitespace exactly. Scan UTF-8
@@ -376,43 +392,83 @@ pub fn search_terms<'a, S: AsRef<str>, B: SpanList>(
     entries: &'a [SearchEntry<S, B>],
     terms: &[&str],
 ) -> impl ExactSizeIterator<Item = SearchHit<'a, S, B>> {
-    // Ranking and highlighting share one compact O(n log n) heap sort in WASM.
-    let ranked: BinaryHeap<_> = entries
-        .iter()
-        .enumerate()
-        .filter_map(|(index, entry)| {
-            if terms.is_empty() {
-                return None;
-            }
-            let fields = [
-                entry.title.normalized.as_ref(),
-                entry.tags.as_ref(),
-                entry.description.as_ref(),
-                entry.body.normalized.as_ref(),
-            ];
+    let mut ranked = Vec::new();
+    if !terms.is_empty() {
+        'entries: for (index, entry) in entries.iter().enumerate() {
             let mut score = 0;
             for term in terms {
-                let weight = fields
-                    .iter()
-                    .zip([8, 4, 2, 1])
-                    .filter(|(field, _)| find(field, term).is_some())
-                    .map(|(_, weight)| weight)
-                    .sum::<usize>();
+                let mut weight = 0;
+                for (field, value) in [
+                    entry.title.normalized.as_ref(),
+                    entry.tags.as_ref(),
+                    entry.description.as_ref(),
+                    entry.body.normalized.as_ref(),
+                ]
+                .iter()
+                .zip([8, 4, 2, 1])
+                {
+                    if find(field, term).is_some() {
+                        weight += value;
+                    }
+                }
                 if weight == 0 {
-                    return None;
+                    continue 'entries;
                 }
                 score += weight;
             }
-            Some((usize::MAX - score, index))
-        })
-        .collect();
-    ranked
-        .into_sorted_vec()
-        .into_iter()
-        .map(|(_, index)| SearchHit {
-            entry: &entries[index],
-            excerpt: entries[index].body.excerpt(terms),
-        })
+            ranked.push((usize::MAX - score, index));
+        }
+    }
+    sort_pairs(&mut ranked);
+    ranked.into_iter().map(|(_, index)| SearchHit {
+        entry: &entries[index],
+        excerpt: entries[index].body.excerpt(terms),
+    })
+}
+
+// Search scores and highlight ranges share this in-place O(n log n) sort.
+fn sort_pairs(pairs: &mut [(usize, usize)]) {
+    // The private caller guarantees root < end <= pairs.len(). Child indices
+    // are checked against end before access, and each move follows that child.
+    unsafe fn sift(pairs: &mut [(usize, usize)], mut root: usize, end: usize) {
+        let value = unsafe { *pairs.get_unchecked(root) };
+        loop {
+            let mut child = root * 2 + 1;
+            if child >= end {
+                break;
+            }
+            if child + 1 < end
+                && unsafe { pairs.get_unchecked(child) < pairs.get_unchecked(child + 1) }
+            {
+                child += 1;
+            }
+            let next = unsafe { *pairs.get_unchecked(child) };
+            if value >= next {
+                break;
+            }
+            unsafe {
+                *pairs.get_unchecked_mut(root) = next;
+            }
+            root = child;
+        }
+        unsafe {
+            *pairs.get_unchecked_mut(root) = value;
+        }
+    }
+    for root in (0..pairs.len() / 2).rev() {
+        unsafe {
+            sift(pairs, root, pairs.len());
+        }
+    }
+    for end in (1..pairs.len()).rev() {
+        // This loop only runs for nonempty slices and 1 <= end < len.
+        unsafe {
+            core::ptr::swap(pairs.as_mut_ptr(), pairs.as_mut_ptr().add(end));
+        }
+        unsafe {
+            sift(pairs, 0, end);
+        }
+    }
 }
 
 pub struct Highlight<'a> {
@@ -449,13 +505,17 @@ pub fn highlight_bytes<'a, S: AsRef<str>, B: SpanList>(
     terms: &[&str],
     range: Range<usize>,
 ) -> Highlight<'a> {
-    let mut ranges = BinaryHeap::new();
+    let mut ranges = Vec::new();
     for term in terms {
         let mut cursor = 0;
-        while let Some(offset) = find_bytes(
-            &text.normalized.as_ref().as_bytes()[cursor..],
-            term.as_bytes(),
-        ) {
+        loop {
+            let offset = find_bytes(
+                &text.normalized.as_ref().as_bytes()[cursor..],
+                term.as_bytes(),
+            );
+            if offset == usize::MAX {
+                break;
+            }
             let start = cursor + offset;
             cursor = start + term.len();
             let source_start = text.source_offset(start, false);
@@ -469,7 +529,7 @@ pub fn highlight_bytes<'a, S: AsRef<str>, B: SpanList>(
             }
         }
     }
-    let mut ranges = ranges.into_sorted_vec();
+    sort_pairs(&mut ranges);
     let mut merged = 0;
     for index in 0..ranges.len() {
         let (start, end) = ranges[index];
@@ -504,6 +564,37 @@ pub fn highlight_parts<'a, S: AsRef<str>, B: SpanList>(
 #[cfg(all(test, feature = "build"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compact_sort_and_matching_preserve_standard_order_and_offsets() {
+        let mut seed = 0x7813u32;
+        for length in [0, 1, 2, 3, 8, 31, 256, 4096] {
+            let mut pairs = Vec::new();
+            for _ in 0..length {
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                pairs.push(((seed >> 20) as usize, (seed & 31) as usize));
+            }
+            let mut expected = pairs.clone();
+            expected.sort_unstable();
+            sort_pairs(&mut pairs);
+            assert_eq!(pairs, expected);
+            pairs.reverse();
+            sort_pairs(&mut pairs);
+            assert_eq!(pairs, expected);
+        }
+        for text in ["Hello 世界, café 👩‍💻", "aaaaabaaaaab", "", "ﬃ ﬃ cafe\u{301}"] {
+            for start in (0..text.len()).filter(|offset| text.is_char_boundary(*offset)) {
+                for end in (start + 1..=text.len()).filter(|offset| text.is_char_boundary(*offset))
+                {
+                    let needle = &text[start..end];
+                    assert_eq!(find(text, needle), text.find(needle));
+                }
+            }
+            for missing in ["missing", "longer than the source with no match"] {
+                assert_eq!(find(text, missing), text.find(missing));
+            }
+        }
+    }
 
     #[test]
     fn excerpts_preserve_context_and_complete_graphemes() {

@@ -15,17 +15,6 @@ pub fn pixels(value: f64) -> Js {
         .call(Key::String, &[Arg::number(value)])
         .call(Key::Concat, &[Arg::literal("px")])
 }
-pub fn replace_html(current: &Js, html: &str, layout: bool) {
-    replace_bytes(current, html.as_bytes(), layout);
-}
-pub fn replace_bytes(current: &Js, html: &[u8], layout: bool) {
-    replace_text(current, &Js::from_bytes(html), layout);
-}
-pub fn replace_text(current: &Js, html: &Js, layout: bool) {
-    let incoming = current.call(Key::CloneNode, &[]);
-    incoming.set(Key::InnerHTML, html.arg());
-    replace(current, &incoming, layout);
-}
 pub fn reduced() -> bool {
     window()
         .call(
@@ -50,7 +39,7 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     for (element, only_layout) in [(current, false), (&page, true)] {
         let animations = element.call(Key::GetAnimations, &[]);
         for i in 0..animations.number(Key::Length) as u32 {
-            let animation = animations.call(Key::At, &[Arg::integer(i)]);
+            let animation = animations.item(i);
             if !only_layout || animation.get(Key::Id).equal_text("content-layout") {
                 animation.call(Key::Cancel, &[]);
             }
@@ -60,7 +49,7 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     current.remove_attr("id");
     let ids = current.call(Key::QuerySelectorAll, &[Arg::literal("[id]")]);
     for i in 0..ids.number(Key::Length) as u32 {
-        ids.call(Key::Item, &[Arg::integer(i)]).remove_attr("id");
+        ids.item(i).remove_attr("id");
     }
     current.set(Key::Inert, Arg::boolean(true));
     current.set_attr("aria-hidden", "true");
@@ -80,7 +69,7 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     }
     document()
         .get(Key::Body)
-        .call(Key::AppendChild, &[current.arg()]);
+        .call_void(Key::Append, current.arg());
     let page = required("#page-content");
     let height = page
         .call(Key::GetBoundingClientRect, &[])
