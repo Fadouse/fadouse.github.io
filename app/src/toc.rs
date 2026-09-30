@@ -33,20 +33,18 @@ impl Default for Toc {
 
 impl Toc {
     pub fn scroll_to(&self, element: &Js) {
-        let from = window().get(Key::ScrollY).numeric();
+        let from = window().number(Key::ScrollY);
         let to = (from
             + element
                 .call(Key::GetBoundingClientRect, &[])
-                .get(Key::Top)
-                .numeric()
+                .number(Key::Top)
             - 32.0)
             .max(0.0)
             .min(
                 document()
                     .get(Key::DocumentElement)
-                    .get(Key::ScrollHeight)
-                    .numeric()
-                    - window().get(Key::InnerHeight).numeric(),
+                    .number(Key::ScrollHeight)
+                    - window().number(Key::InnerHeight),
             );
         self.scroll.set(Some(Scroll {
             started: now(),
@@ -63,18 +61,12 @@ impl Toc {
     pub fn on_page(&self) {
         let links = query("#page-content").call(Key::QuerySelectorAll, &[Arg::literal(".toc a")]);
         // The renderer emits matching desktop and mobile lists, in that order.
-        let count = links.get(Key::Length).numeric() as u32 / 2;
-        let headings = Js::array(&[]);
-        for index in 0..count {
-            let id = links
-                .call(Key::Item, &[Arg::number(index as f64)])
-                .call(Key::GetAttribute, &[Arg::literal("href")])
-                .call(Key::Slice, &[Arg::number(1.0)]);
-            headings.call(
-                Key::Push,
-                &[document().call(Key::GetElementById, &[id.arg()]).arg()],
-            );
-        }
+        let count = links.number(Key::Length) as u32 / 2;
+        // Only parsed Markdown headings have a generated heading anchor.
+        let headings = query("#page-content").call(
+            Key::QuerySelectorAll,
+            &[Arg::literal(".prose [id]:has(> .heading-anchor)")],
+        );
         self.links.replace(links.retain()).release();
         self.headings.replace(headings.retain()).release();
         self.count.set(count);
@@ -99,19 +91,17 @@ impl Toc {
             let remaining = 1.0 - progress;
             let position =
                 scroll.to + (scroll.from - scroll.to) * remaining * remaining * remaining;
-            window().call(Key::ScrollTo, &[Arg::number(0.0), Arg::number(position)]);
+            window().call(Key::ScrollTo, &[Arg::integer(0), Arg::number(position)]);
             if progress < 1.0 {
                 self.request();
             } else {
                 self.cancel();
             }
         }
-        let bottom = window().get(Key::ScrollY).numeric()
-            + window().get(Key::InnerHeight).numeric()
+        let bottom = window().number(Key::ScrollY) + window().number(Key::InnerHeight)
             >= document()
                 .get(Key::DocumentElement)
-                .get(Key::ScrollHeight)
-                .numeric()
+                .number(Key::ScrollHeight)
                 - 1.0;
         let mut low = 0;
         let mut high = count;
@@ -125,10 +115,9 @@ impl Toc {
                 let top = self
                     .headings
                     .get()
-                    .call(Key::At, &[Arg::number(middle as f64)])
+                    .call(Key::Item, &[Arg::integer(middle)])
                     .call(Key::GetBoundingClientRect, &[])
-                    .get(Key::Top)
-                    .numeric();
+                    .number(Key::Top);
                 if top <= 64.0 {
                     low = middle + 1;
                 } else {
@@ -145,12 +134,12 @@ impl Toc {
             if previous != u32::MAX {
                 self.links
                     .get()
-                    .call(Key::Item, &[Arg::number((offset + previous) as f64)])
+                    .call(Key::Item, &[Arg::integer(offset + previous)])
                     .remove_attr("aria-current");
             }
             self.links
                 .get()
-                .call(Key::Item, &[Arg::number((offset + active) as f64)])
+                .call(Key::Item, &[Arg::integer(offset + active)])
                 .set_attr("aria-current", "location");
         }
     }

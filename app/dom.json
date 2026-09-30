@@ -70,7 +70,6 @@
   "Performance": "performance",
   "PreventDefault": "preventDefault",
   "PreventScroll": "preventScroll",
-  "Push": "push",
   "PushState": "pushState",
   "QuerySelector": "querySelector",
   "QuerySelectorAll": "querySelectorAll",

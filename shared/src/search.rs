@@ -282,21 +282,27 @@ impl<S: AsRef<str>, B: SpanList> SearchText<S, B> {
             .min()
             .unwrap_or(0);
         let first = self.source_offset(first, false);
-        let start = self.text.as_ref().as_bytes()[..first]
-            .iter()
-            .enumerate()
-            .rev()
-            .filter(|(offset, byte)| **byte & 0xc0 != 0x80 && self.is_grapheme_boundary(*offset))
-            .nth(39)
-            .map_or(0, |(offset, _)| offset);
-        let end = self.text.as_ref().as_bytes()[start..]
-            .iter()
-            .enumerate()
-            .filter(|(_, byte)| **byte & 0xc0 != 0x80)
-            .map(|(offset, _)| start + offset)
-            .filter(|offset| self.is_grapheme_boundary(*offset))
-            .nth(180)
-            .unwrap_or(self.text.as_ref().len());
+        let bytes = self.text.as_ref().as_bytes();
+        let before = &bytes[..first];
+        let mut start = before.len();
+        let mut remaining = 40;
+        while start > 0 && remaining > 0 {
+            start -= 1;
+            if before[start] & 0xc0 != 0x80 && self.is_grapheme_boundary(start) {
+                remaining -= 1;
+            }
+        }
+        let mut end = start;
+        let mut length = 0;
+        while end < bytes.len() {
+            if bytes[end] & 0xc0 != 0x80 && self.is_grapheme_boundary(end) {
+                if length == 180 {
+                    break;
+                }
+                length += 1;
+            }
+            end += 1;
+        }
         start..end
     }
 }
@@ -498,6 +504,36 @@ pub fn highlight_parts<'a, S: AsRef<str>, B: SpanList>(
 #[cfg(all(test, feature = "build"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn excerpts_preserve_context_and_complete_graphemes() {
+        use unicode_segmentation::UnicodeSegmentation;
+
+        for grapheme in ["a", "世界", "cafe\u{301} ", "👩‍💻 "] {
+            for (before, after) in [(10, 220), (80, 220), (80, 5)] {
+                let source = alloc::format!(
+                    "{}needle{}",
+                    grapheme.repeat(before),
+                    grapheme.repeat(after)
+                );
+                let first = source.find("needle").unwrap();
+                let boundaries: Vec<_> = source
+                    .grapheme_indices(true)
+                    .map(|(offset, _)| offset)
+                    .collect();
+                let hit = boundaries.partition_point(|offset| *offset < first);
+                let start = hit.saturating_sub(40);
+                let expected =
+                    boundaries[start]..boundaries.get(start + 180).copied().unwrap_or(source.len());
+                let text = SearchText::new(source);
+                assert_eq!(
+                    text.excerpt(&["needle"]),
+                    expected,
+                    "{grapheme} {before} {after}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn compact_utf8_and_whitespace_match_standard_library() {

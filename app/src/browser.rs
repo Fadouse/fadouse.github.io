@@ -11,6 +11,8 @@ unsafe extern "C" {
     fn make_number(value: f64) -> u32;
     fn array(pointer: *const Arg, length: usize) -> u32;
     fn get(value: u32, key: Key) -> u32;
+    fn get_number(value: u32, key: Key) -> f64;
+    fn get_boolean(value: u32, key: Key) -> bool;
     fn try_get(value: u32, key: Key) -> i32;
     fn set(value: u32, key: Key, data: *const u8, kind: usize);
     fn call(value: u32, key: Key, args: *const Arg, count: usize) -> u32;
@@ -66,6 +68,13 @@ impl<'a> Arg<'a> {
         Self {
             data: unsafe { make_number(value) } as *const u8,
             kind: 0,
+            lifetime: PhantomData,
+        }
+    }
+    pub fn integer(value: u32) -> Self {
+        Self {
+            data: value as *const u8,
+            kind: usize::MAX - 1,
             lifetime: PhantomData,
         }
     }
@@ -144,6 +153,12 @@ impl Js {
     pub fn get(&self, name: Key) -> Self {
         Self(unsafe { get(self.0, name) })
     }
+    pub fn number(&self, name: Key) -> f64 {
+        unsafe { get_number(self.0, name) }
+    }
+    pub fn boolean(&self, name: Key) -> bool {
+        unsafe { get_boolean(self.0, name) }
+    }
     #[inline]
     pub fn set(&self, name: Key, value: Arg) {
         unsafe { set(self.0, name, value.data, value.kind) };
@@ -169,7 +184,7 @@ impl Js {
     pub fn same(&self, other: &Self) -> bool {
         unsafe { equal(self.0, other.0) }
     }
-    pub fn equal_text(&self, text: &str) -> bool {
+    pub fn equal_text(&self, text: &'static str) -> bool {
         unsafe { equal_text(self.0, text.as_ptr(), text.len()) }
     }
     pub fn truthy(&self) -> bool {
@@ -209,8 +224,11 @@ impl Js {
         self.call(Key::GetAttribute, &[Arg::literal(name)]).text()
     }
     #[inline(never)]
-    pub fn set_attr(&self, name: &'static str, value: &str) {
-        self.call(Key::SetAttribute, &[Arg::literal(name), Arg::string(value)]);
+    pub fn set_attr(&self, name: &'static str, value: &'static str) {
+        self.call(
+            Key::SetAttribute,
+            &[Arg::literal(name), Arg::literal(value)],
+        );
     }
     pub fn remove_attr(&self, name: &'static str) {
         self.call(Key::RemoveAttribute, &[Arg::literal(name)]);
@@ -264,18 +282,18 @@ pub fn location() -> Js {
 pub fn url() -> Js {
     Js::construct(Key::Url, &[location().get(Key::Href).arg()])
 }
-pub fn number_text(value: f64) -> String {
-    window().call(Key::String, &[Arg::number(value)]).text()
+pub fn number_text(value: u32) -> String {
+    window().call(Key::String, &[Arg::integer(value)]).text()
 }
 pub fn focus(element: &Js) {
     let options = Js::object();
     options.set(Key::PreventScroll, Arg::boolean(true));
     let _ = element.try_call(Key::Focus, &[options.arg()]);
 }
-pub fn mark(name: &str) {
+pub fn mark(name: &'static str) {
     let _ = window()
         .get(Key::Performance)
-        .try_call(Key::Mark, &[Arg::string(name)]);
+        .try_call(Key::Mark, &[Arg::literal(name)]);
 }
 pub fn saved_theme() -> Js {
     window()
@@ -302,8 +320,8 @@ pub fn set_theme(theme: &Js) {
         Key::QuerySelectorAll,
         &[Arg::literal("[data-theme-choice]")],
     );
-    for i in 0..buttons.get(Key::Length).numeric() as u32 {
-        let button = buttons.call(Key::Item, &[Arg::number(i as f64)]);
+    for i in 0..buttons.number(Key::Length) as u32 {
+        let button = buttons.call(Key::Item, &[Arg::integer(i)]);
         button.set_attr(
             "aria-pressed",
             if button

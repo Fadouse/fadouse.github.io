@@ -46,6 +46,7 @@ export default async function initialize(url, integrity) {
     kind >>>= 0;
     if (kind === 0) return values[data];
     if (kind === 0xffffffff) return Boolean(data);
+    if (kind === 0xfffffffe) return data >>> 0;
     const length = (kind >>> 1) - 1;
     return kind & 1 ? literal(data, length) : text(data, length);
   };
@@ -61,6 +62,8 @@ export default async function initialize(url, integrity) {
     make_number: value => hold(value),
     array: (pointer, length) => hold(args(pointer, length)),
     get: (index, key) => hold(values[index][names[key]]),
+    get_number: (index, key) => Number(values[index][names[key]]),
+    get_boolean: (index, key) => Boolean(values[index][names[key]]),
     try_get: (index, key) => caught(() => values[index][names[key]]),
     set: (index, key, data, kind) => {
       values[index][names[key]] = argument(data, kind);
@@ -79,7 +82,7 @@ export default async function initialize(url, integrity) {
     ),
     truthy: index => Boolean(values[index]),
     equal: (a, b) => values[a] === values[b],
-    equal_text: (index, pointer, length) => values[index] === text(pointer, length),
+    equal_text: (index, pointer, length) => values[index] === literal(pointer, length),
     numeric: index => Number(values[index]),
     instance: (index, key) => values[index] instanceof globalThis[names[key]],
     string_length: index => { encoded = encoder.encode(values[index]); return encoded.length; },

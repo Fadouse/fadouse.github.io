@@ -2,11 +2,11 @@ use crate::{
     app,
     browser::{Arg, Js, Key, document, required, window},
 };
-fn animate(element: &Js, property: Key, from: Arg<'_>, to: Arg<'_>, duration: f64) -> Js {
+fn animate(element: &Js, property: Key, from: Arg<'_>, to: Arg<'_>, duration: u32) -> Js {
     let keyframes = Js::object();
     keyframes.set(property, Js::array(&[from, to]).arg());
     let timing = Js::object();
-    timing.set(Key::Duration, Arg::number(duration));
+    timing.set(Key::Duration, Arg::integer(duration));
     timing.set(Key::Easing, Arg::literal("cubic-bezier(0.22, 1, 0.36, 1)"));
     element.call(Key::Animate, &[keyframes.arg(), timing.arg()])
 }
@@ -32,27 +32,25 @@ pub fn reduced() -> bool {
             Key::MatchMedia,
             &[Arg::literal("(prefers-reduced-motion: reduce)")],
         )
-        .get(Key::Matches)
-        .truthy()
+        .boolean(Key::Matches)
 }
 pub fn replace(current: &Js, incoming: &Js, layout: bool) {
-    if reduced() || current.get(Key::ChildElementCount).numeric() == 0.0 {
+    if reduced() || current.number(Key::ChildElementCount) == 0.0 {
         current.call(Key::ReplaceWith, &[incoming.arg()]);
         return;
     }
     let page = required("#page-content");
     let previous_height = page
         .call(Key::GetBoundingClientRect, &[])
-        .get(Key::Height)
-        .numeric();
+        .number(Key::Height);
     let bounds = current.call(Key::GetBoundingClientRect, &[]);
     let opacity = window()
         .call(Key::GetComputedStyle, &[current.arg()])
         .call(Key::GetPropertyValue, &[Arg::literal("opacity")]);
     for (element, only_layout) in [(current, false), (&page, true)] {
         let animations = element.call(Key::GetAnimations, &[]);
-        for i in 0..animations.get(Key::Length).numeric() as u32 {
-            let animation = animations.call(Key::At, &[Arg::number(i as f64)]);
+        for i in 0..animations.number(Key::Length) as u32 {
+            let animation = animations.call(Key::At, &[Arg::integer(i)]);
             if !only_layout || animation.get(Key::Id).equal_text("content-layout") {
                 animation.call(Key::Cancel, &[]);
             }
@@ -61,9 +59,8 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     current.call(Key::ReplaceWith, &[incoming.arg()]);
     current.remove_attr("id");
     let ids = current.call(Key::QuerySelectorAll, &[Arg::literal("[id]")]);
-    for i in 0..ids.get(Key::Length).numeric() as u32 {
-        ids.call(Key::Item, &[Arg::number(i as f64)])
-            .remove_attr("id");
+    for i in 0..ids.number(Key::Length) as u32 {
+        ids.call(Key::Item, &[Arg::integer(i)]).remove_attr("id");
     }
     current.set(Key::Inert, Arg::boolean(true));
     current.set_attr("aria-hidden", "true");
@@ -78,10 +75,7 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     ] {
         style.call(
             Key::SetProperty,
-            &[
-                Arg::string(property),
-                pixels(bounds.get(key).numeric()).arg(),
-            ],
+            &[Arg::literal(property), pixels(bounds.number(key)).arg()],
         );
     }
     document()
@@ -90,31 +84,24 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     let page = required("#page-content");
     let height = page
         .call(Key::GetBoundingClientRect, &[])
-        .get(Key::Height)
-        .numeric();
+        .number(Key::Height);
     if layout && (previous_height - height).abs() > 0.5 {
         animate(
             &page,
             Key::Height,
             pixels(previous_height).arg(),
             pixels(height).arg(),
-            180.0,
+            180,
         )
         .set(Key::Id, Arg::literal("content-layout"));
     }
-    let leaving = animate(
-        current,
-        Key::Opacity,
-        opacity.arg(),
-        Arg::literal("0"),
-        100.0,
-    );
+    let leaving = animate(current, Key::Opacity, opacity.arg(), Arg::literal("0"), 100);
     animate(
         incoming,
         Key::Opacity,
         Arg::literal("0"),
         Arg::literal("1"),
-        130.0,
+        130,
     );
     app().remove_after(*current, &leaving.get(Key::Finished));
 }

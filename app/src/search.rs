@@ -196,7 +196,7 @@ fn results(state: &State) -> (String, Vec<u8>) {
     let mut html = b"<p class=\"muted\" role=\"status\">".to_vec();
     append_bytes(
         &mut html,
-        browser::number_text(hits.len() as f64).as_bytes(),
+        browser::number_text(hits.len() as u32).as_bytes(),
     );
     append_bytes(
         &mut html,

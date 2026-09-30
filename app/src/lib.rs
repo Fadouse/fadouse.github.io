@@ -54,13 +54,10 @@ fn page_read(doc: &Js) -> Js {
     }
     let nodes = doc.call(Key::QuerySelectorAll, &[Arg::literal("[data-page-meta]")]);
     let metadata = doc.call(Key::CreateDocumentFragment, &[]);
-    for i in 0..nodes.get(Key::Length).numeric() as u32 {
+    for i in 0..nodes.number(Key::Length) as u32 {
         metadata.call(
             Key::AppendChild,
-            &[nodes
-                .call(Key::Item, &[Arg::number(i as f64)])
-                .duplicate()
-                .arg()],
+            &[nodes.call(Key::Item, &[Arg::integer(i)]).duplicate().arg()],
         );
     }
     Js::array(&[content.duplicate().arg(), metadata.arg()])
@@ -124,10 +121,7 @@ pub extern "C" fn dispatch(kind: u32, value: u32) {
         0 => app().click(&event),
         1 => app().keydown(&event),
         2 => app().navigate(browser::url(), false, false),
-        3 => {
-            app().record_scroll();
-            app().toc.request();
-        }
+        3 => app().toc.request(),
         8 => app().toc.request(),
         9 => app().toc.cancel(),
         _ => app().search.event(kind, &event),
@@ -139,7 +133,7 @@ pub extern "C" fn resolved(kind: u32, token: u32, value: u32) {
     let value = Js::owned(value);
     match kind {
         PAGE_RESPONSE | INDEX_RESPONSE => {
-            if !value.get(Key::Ok).truthy() && value.get(Key::Status).numeric() != 404.0 {
+            if !value.boolean(Key::Ok) && value.number(Key::Status) != 404.0 {
                 rejected(kind, token);
                 return;
             }
@@ -193,9 +187,9 @@ pub extern "C" fn timer(kind: u32, token: u32) {
     } else {
         &app().leaving
     };
-    let element = list.call(Key::Get, &[Arg::number(token as f64)]);
+    let element = list.call(Key::Get, &[Arg::integer(token)]);
     if !element.is_null() {
-        list.call(Key::Delete, &[Arg::number(token as f64)]);
+        list.call(Key::Delete, &[Arg::integer(token)]);
         if kind == 0 {
             element.set_text("Copy");
         } else {
@@ -228,10 +222,10 @@ impl App {
         );
     }
     fn click(&self, event: &Js) {
-        if event.get(Key::Button).numeric() != 0.0
+        if event.number(Key::Button) != 0.0
             || [Key::CtrlKey, Key::MetaKey, Key::AltKey, Key::ShiftKey]
                 .iter()
-                .any(|key| event.get(*key).truthy())
+                .any(|key| event.boolean(*key))
         {
             return;
         }
@@ -300,9 +294,9 @@ impl App {
     fn keydown(&self, event: &Js) {
         self.toc.cancel();
         let key = event.get(Key::Key);
-        if (event.get(Key::MetaKey).truthy() || event.get(Key::CtrlKey).truthy())
-            && !event.get(Key::AltKey).truthy()
-            && !event.get(Key::ShiftKey).truthy()
+        if (event.boolean(Key::MetaKey) || event.boolean(Key::CtrlKey))
+            && !event.boolean(Key::AltKey)
+            && !event.boolean(Key::ShiftKey)
             && (key.equal_text("k") || key.equal_text("K"))
         {
             event.call(Key::PreventDefault, &[]);
@@ -327,7 +321,7 @@ impl App {
         if !contents.is_null() {
             self.pages
                 .call(Key::Get, &[self.path.get().arg()])
-                .call(Key::At, &[Arg::number(0.0)])
+                .call(Key::At, &[Arg::integer(0)])
                 .query(".mobile-toc")
                 .set(Key::Open, contents.get(Key::Open).arg());
         }
@@ -367,7 +361,7 @@ impl App {
         self.requests.call(
             Key::Set,
             &[
-                Arg::number(token as f64),
+                Arg::integer(token),
                 Js::array(&[url.arg(), Arg::number(position), Arg::boolean(focus_search)]).arg(),
             ],
         );
@@ -377,23 +371,26 @@ impl App {
         }
     }
     fn page_ready(&self, token: u32, page: Js) {
-        let request = self.requests.call(Key::Get, &[Arg::number(token as f64)]);
+        let request = self.requests.call(Key::Get, &[Arg::integer(token)]);
         if request.is_null() {
             return;
         }
-        self.requests
-            .call(Key::Delete, &[Arg::number(token as f64)]);
-        let url = request.call(Key::At, &[Arg::number(0.0)]);
+        self.requests.call(Key::Delete, &[Arg::integer(token)]);
+        let url = request.call(Key::At, &[Arg::integer(0)]);
         let path = url.get(Key::Pathname);
         let current = self.navigation.get() == token;
+        // A reader may keep scrolling while the next page is downloading.
+        if current {
+            self.record_scroll();
+        }
         if !page.is_null() {
             self.pages.call(Key::Set, &[path.arg(), page.arg()]);
             if current {
                 self.commit(
                     &url,
                     &page,
-                    request.call(Key::At, &[Arg::number(1.0)]).numeric(),
-                    request.call(Key::At, &[Arg::number(2.0)]).truthy(),
+                    request.call(Key::At, &[Arg::integer(1)]).numeric(),
+                    request.call(Key::At, &[Arg::integer(2)]).truthy(),
                 );
             }
         } else if current {
@@ -416,19 +413,19 @@ impl App {
         update_header(&path);
         motion::replace(
             &required("#page-content"),
-            &page.call(Key::At, &[Arg::number(0.0)]).duplicate(),
+            &page.call(Key::At, &[Arg::integer(0)]).duplicate(),
             position == 0.0 && url.get(Key::Hash).equal_text(""),
         );
         required("#main-content").remove_attr("aria-busy");
         let nodes = document().call(Key::QuerySelectorAll, &[Arg::literal("[data-page-meta]")]);
-        for i in 0..nodes.get(Key::Length).numeric() as u32 {
+        for i in 0..nodes.number(Key::Length) as u32 {
             nodes
-                .call(Key::Item, &[Arg::number(i as f64)])
+                .call(Key::Item, &[Arg::integer(i)])
                 .call(Key::Remove, &[]);
         }
         document().get(Key::Head).call(
             Key::AppendChild,
-            &[page.call(Key::At, &[Arg::number(1.0)]).duplicate().arg()],
+            &[page.call(Key::At, &[Arg::integer(1)]).duplicate().arg()],
         );
         required("#navigation-status").set(Key::TextContent, document().get(Key::Title).arg());
         restore_position(url, position);
@@ -446,7 +443,7 @@ impl App {
             .get(Key::TextContent);
         let token = self.token();
         self.copies
-            .call(Key::Set, &[Arg::number(token as f64), button.arg()]);
+            .call(Key::Set, &[Arg::integer(token), button.arg()]);
         match window()
             .get(Key::Navigator)
             .get(Key::Clipboard)
@@ -457,7 +454,7 @@ impl App {
         }
     }
     fn copied(&self, token: u32, copied: bool) {
-        let button = self.copies.call(Key::Get, &[Arg::number(token as f64)]);
+        let button = self.copies.call(Key::Get, &[Arg::integer(token)]);
         if !button.is_null() {
             let message = if copied { "Copied" } else { "Copy failed" };
             button.set_text(message);
@@ -468,7 +465,7 @@ impl App {
     fn remove_after(&self, element: Js, promise: &Js) {
         let token = self.token();
         self.leaving
-            .call(Key::Set, &[Arg::number(token as f64), element.arg()]);
+            .call(Key::Set, &[Arg::integer(token), element.arg()]);
         promise.subscribe(LEAVING, token);
     }
 }
@@ -493,8 +490,8 @@ fn update_header(path: &Js) {
         required(".brand").remove_attr("aria-current");
     }
     let links = document().call(Key::QuerySelectorAll, &[Arg::literal("[data-nav]")]);
-    for i in 0..links.get(Key::Length).numeric() as u32 {
-        let link = links.call(Key::Item, &[Arg::number(i as f64)]);
+    for i in 0..links.number(Key::Length) as u32 {
+        let link = links.call(Key::Item, &[Arg::integer(i)]);
         let href = link.call(Key::GetAttribute, &[Arg::literal("href")]);
         if !href.equal_text("/") && path.call(Key::StartsWith, &[href.arg()]).truthy() {
             link.set_attr("aria-current", "page");
@@ -513,7 +510,7 @@ fn scroll_to_hash(url: &Js, smooth: bool) -> bool {
     let mut hash = url.get(Key::Hash);
     let has_hash = !hash.equal_text("");
     while hash.call(Key::StartsWith, &[Arg::literal("#")]).truthy() {
-        hash = hash.call(Key::Slice, &[Arg::number(1.0)]);
+        hash = hash.call(Key::Slice, &[Arg::integer(1)]);
     }
     if has_hash && let Ok(id) = window().try_call(Key::DecodeURIComponent, &[hash.arg()]) {
         let element = document().call(Key::GetElementById, &[id.arg()]);
@@ -534,7 +531,7 @@ fn restore_position(url: &Js, position: f64) {
     if scroll_to_hash(url, false) {
         return;
     }
-    window().call(Key::ScrollTo, &[Arg::number(0.0), Arg::number(position)]);
+    window().call(Key::ScrollTo, &[Arg::integer(0), Arg::number(position)]);
     browser::focus(&required("#main-content"));
 }
 fn focus_search_input() {
