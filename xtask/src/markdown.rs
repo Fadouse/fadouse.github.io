@@ -1,13 +1,8 @@
-use std::{collections::HashSet, path::Path, sync::OnceLock};
+use std::{collections::HashSet, path::Path};
 
 use anyhow::{Context, Result};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd, html};
 use shared::{Heading, PostContent, normalize};
-use syntect::{
-    html::{ClassStyle, ClassedHTMLGenerator},
-    parsing::SyntaxSet,
-    util::LinesWithEndings,
-};
 
 pub struct RenderedMarkdown {
     pub content: PostContent,
@@ -56,19 +51,6 @@ fn heading_id(text: &str, used: &mut HashSet<String>) -> String {
 }
 
 fn code_block(language: &str, code: &str) -> Result<String> {
-    static SYNTAXES: OnceLock<SyntaxSet> = OnceLock::new();
-    let syntaxes = SYNTAXES.get_or_init(SyntaxSet::load_defaults_newlines);
-    let syntax = syntaxes
-        .find_syntax_by_token(language)
-        .unwrap_or_else(|| syntaxes.find_syntax_plain_text());
-    let mut generator = ClassedHTMLGenerator::new_with_class_style(
-        syntax,
-        syntaxes,
-        ClassStyle::SpacedPrefixed { prefix: "syntax-" },
-    );
-    for line in LinesWithEndings::from(code) {
-        generator.parse_html_for_line_which_includes_newline(line)?;
-    }
     let label = if language.is_empty() {
         "Text"
     } else {
@@ -77,7 +59,7 @@ fn code_block(language: &str, code: &str) -> Result<String> {
     Ok(format!(
         "<div class=\"code-block\"><div class=\"code-toolbar\"><span>{}</span><button type=\"button\" data-copy=\"code\" aria-label=\"Copy code\">Copy</button></div><pre><code>{}</code></pre></div>",
         escape(label),
-        generator.finalize()
+        crate::highlight::render(language, code)?
     ))
 }
 

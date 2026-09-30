@@ -75,6 +75,61 @@ int main(void) {
 printf '%s\n' 'Hello, world!'
 ```
 
+### Zig
+
+```zig
+const std = @import("std");
+
+pub fn main() void {
+    std.debug.print("Hello, world!\n", .{});
+}
+```
+
+### Java
+
+```java
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, world!");
+    }
+}
+```
+
+### C++
+
+```cpp
+#include <iostream>
+
+int main() {
+    std::cout << "Hello, world!\n";
+    return 0;
+}
+```
+
+### Assembly
+
+This example uses GNU assembler Intel syntax on x86-64 Linux.
+
+```asm
+.intel_syntax noprefix
+.section .rodata
+message:
+    .ascii "Hello, world!\n"
+
+.section .text
+.global _start
+_start:
+    mov eax, 1
+    mov edi, 1
+    lea rsi, [rip + message]
+    mov edx, 14
+    syscall
+
+    mov eax, 60
+    xor edi, edi
+    syscall
+```
+
 ## A little more than hello
 
 The [Python tutorial](https://docs.python.org/3/tutorial/introduction.html#first-steps-towards-programming)
@@ -120,6 +175,11 @@ away from the words around it.
 | Python | Module execution | `print` |
 | JavaScript | Script execution | `console.log` |
 | C | `int main(void)` | `printf` |
+| Bash | Script execution | `printf` |
+| Zig | `pub fn main()` | `std.debug.print` |
+| Java | `public static void main` | `System.out.println` |
+| C++ | `int main()` | `std::cout` |
+| Assembly | `_start` | Linux `write` syscall |
 
 ### Lists and tasks
 

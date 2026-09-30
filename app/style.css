@@ -5,6 +5,10 @@
   --muted: #626262;
   --line: #d5d5d5;
   --surface: #f0f0f0;
+  --syntax-keyword: light-dark(#6f42c1, #c9a0ff);
+  --syntax-string: light-dark(#0a6a3b, #a6d59e);
+  --syntax-function: light-dark(#0550ae, #88b9ff);
+  --syntax-value: light-dark(#953800, #f0ba86);
   --body-size: 1rem;
   --title-size: 1.5rem;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -571,12 +575,29 @@ code, pre, kbd {
   font-style: italic;
 }
 
-.syntax-keyword, .syntax-storage, .syntax-entity.syntax-name {
+.syntax-keyword, .syntax-storage, .syntax-attribute, .syntax-tag {
+  color: var(--syntax-keyword);
   font-weight: 700;
 }
 
-.syntax-string {
-  color: var(--muted);
+.syntax-function, .syntax-label,
+.syntax-entity.syntax-name.syntax-function, .syntax-support.syntax-function {
+  color: var(--syntax-function);
+  font-weight: 600;
+}
+
+.syntax-string, .syntax-character {
+  color: var(--syntax-string);
+}
+
+.syntax-number, .syntax-constant, .syntax-boolean, .syntax-escape,
+.syntax-type, .syntax-constructor, .syntax-variable-builtin,
+.syntax-entity.syntax-name.syntax-type, .syntax-support.syntax-type {
+  color: var(--syntax-value);
+}
+
+.syntax-variable, .syntax-property, .syntax-module, .syntax-embedded {
+  color: var(--text);
 }
 
 .prose input[type="checkbox"] {
