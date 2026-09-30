@@ -38,6 +38,7 @@ unsafe extern "C" {
     fn listen(value: u32, pointer: *const u8, length: usize, kind: u32);
     fn promise(value: u32, kind: u32, token: u32);
     fn timeout(milliseconds: i32, kind: u32, token: u32);
+    fn frame(kind: u32, token: u32);
 }
 
 #[repr(C)]
@@ -239,6 +240,9 @@ impl Js {
 
 pub fn delay(milliseconds: i32, kind: u32, token: u32) {
     unsafe { timeout(milliseconds, kind, token) };
+}
+pub fn next_frame(kind: u32, token: u32) {
+    unsafe { frame(kind, token) };
 }
 pub fn window() -> Js {
     Js(1)

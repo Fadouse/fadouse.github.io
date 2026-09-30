@@ -8,7 +8,7 @@
   --body-size: 1rem;
   --title-size: 1.5rem;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --layout-duration: 300ms;
+  --layout-duration: 180ms;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   color: var(--text);
@@ -387,6 +387,7 @@ small, time, summary {
 }
 
 .toc a {
+  position: relative;
   display: block;
   text-decoration: none;
   color: var(--muted);
@@ -396,6 +397,29 @@ small, time, summary {
 .toc a:hover {
   color: var(--text);
   text-decoration: underline;
+}
+
+.toc a[aria-current="location"] {
+  color: var(--text);
+}
+
+.desktop-toc a::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: -24px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0;
+}
+
+.desktop-toc .nested-heading a::before {
+  left: -40px;
+}
+
+.desktop-toc a[aria-current="location"]::before {
+  opacity: 0.55;
 }
 
 .toc .nested-heading {
@@ -410,6 +434,17 @@ small, time, summary {
   font-size: 18px;
   line-height: 1.8;
   overflow-wrap: break-word;
+}
+
+.prose a:not(.heading-anchor) {
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
+.prose a:not(.heading-anchor):hover,
+.prose a:not(.heading-anchor):focus-visible {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1.5px;
 }
 
 .prose > * + * {
@@ -494,8 +529,10 @@ code, pre, kbd {
 }
 
 .prose :not(pre) > code {
-  background: var(--surface);
-  padding: 2px 5px;
+  background: color-mix(in srgb, var(--surface) 70%, var(--background));
+  padding: 1px 5px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--line) 55%, transparent);
 }
 
 .code-block {
@@ -814,6 +851,14 @@ mark {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .toc a, .prose a:not(.heading-anchor) {
+    transition: color 90ms var(--ease-out), text-decoration-color 90ms var(--ease-out);
+  }
+
+  .desktop-toc a::before {
+    transition: opacity 90ms var(--ease-out);
+  }
+
   .post-row, .post-title a {
     transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
   }

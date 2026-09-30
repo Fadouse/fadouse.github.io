@@ -26,15 +26,17 @@ pub fn replace_text(current: &Js, html: &Js, layout: bool) {
     incoming.set(Key::InnerHTML, html.arg());
     replace(current, &incoming, layout);
 }
-pub fn replace(current: &Js, incoming: &Js, layout: bool) {
-    let reduced = window()
+pub fn reduced() -> bool {
+    window()
         .call(
             Key::MatchMedia,
             &[Arg::literal("(prefers-reduced-motion: reduce)")],
         )
         .get(Key::Matches)
-        .truthy();
-    if reduced || current.get(Key::ChildElementCount).numeric() == 0.0 {
+        .truthy()
+}
+pub fn replace(current: &Js, incoming: &Js, layout: bool) {
+    if reduced() || current.get(Key::ChildElementCount).numeric() == 0.0 {
         current.call(Key::ReplaceWith, &[incoming.arg()]);
         return;
     }
@@ -96,7 +98,7 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
             Key::Height,
             pixels(previous_height).arg(),
             pixels(height).arg(),
-            300.0,
+            180.0,
         )
         .set(Key::Id, Arg::literal("content-layout"));
     }
@@ -105,14 +107,14 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
         Key::Opacity,
         opacity.arg(),
         Arg::literal("0"),
-        120.0,
+        100.0,
     );
     animate(
         incoming,
         Key::Opacity,
         Arg::literal("0"),
         Arg::literal("1"),
-        160.0,
+        130.0,
     );
     app().remove_after(*current, &leaving.get(Key::Finished));
 }

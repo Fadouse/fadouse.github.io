@@ -95,7 +95,8 @@ export default async function initialize(url, integrity) {
         () => run(() => wasm.rejected(kind, token))
       );
     },
-    timeout: (milliseconds, kind, token) => setTimeout(() => run(() => wasm.timer(kind, token)), milliseconds)
+    timeout: (milliseconds, kind, token) => setTimeout(() => run(() => wasm.timer(kind, token)), milliseconds),
+    frame: (kind, token) => requestAnimationFrame(() => run(() => wasm.timer(kind, token)))
   };
   ({ instance: { exports: wasm } } = await WebAssembly.instantiateStreaming(fetch(url, { integrity }), { dom }));
   run(() => wasm.start());
