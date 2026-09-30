@@ -61,6 +61,8 @@
   "Navigator": "navigator",
   "Normalize": "normalize",
   "Now": "now",
+  "OffsetHeight": "offsetHeight",
+  "OffsetTop": "offsetTop",
   "Ok": "ok",
   "Open": "open",
   "Opacity": "opacity",

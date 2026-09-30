@@ -122,7 +122,7 @@ pub extern "C" fn dispatch(kind: u32, value: u32) {
         1 => app().keydown(&event),
         2 => app().navigate(browser::url(), false, false),
         3 => app().toc.request(),
-        8 => app().toc.request(),
+        8 => app().toc.refresh(),
         9 => app().toc.cancel(),
         _ => app().search.event(kind, &event),
     }

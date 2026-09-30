@@ -1,6 +1,7 @@
 use core::cell::Cell;
 
 use crate::browser::{self, Arg, Js, Key, document, query, window};
+use crate::motion;
 
 #[derive(Clone, Copy)]
 struct Scroll {
@@ -15,6 +16,7 @@ pub struct Toc {
     count: Cell<u32>,
     active: Cell<u32>,
     pending: Cell<bool>,
+    geometry_dirty: Cell<bool>,
     scroll: Cell<Option<Scroll>>,
 }
 
@@ -26,6 +28,7 @@ impl Default for Toc {
             count: Cell::new(0),
             active: Cell::new(u32::MAX),
             pending: Cell::new(false),
+            geometry_dirty: Cell::new(false),
             scroll: Cell::new(None),
         }
     }
@@ -80,6 +83,11 @@ impl Toc {
         }
     }
 
+    pub fn refresh(&self) {
+        self.geometry_dirty.set(true);
+        self.request();
+    }
+
     pub fn update(&self) {
         self.pending.set(false);
         let count = self.count.get();
@@ -127,6 +135,26 @@ impl Toc {
         }
         let active = low.saturating_sub(1);
         let previous = self.active.replace(active);
+        let refresh = self.geometry_dirty.replace(false);
+        if previous == active && !refresh {
+            return;
+        }
+        let link = self.links.get().call(Key::Item, &[Arg::integer(active)]);
+        // Offsets use the sidebar's content coordinates, including when it
+        // scrolls. Read before writing, only when selection or layout changes.
+        let top = link.number(Key::OffsetTop) + 4.0;
+        let height = (link.number(Key::OffsetHeight) - 8.0).max(0.0);
+        let sidebar = link.closest(".toc");
+        let style = sidebar.get(Key::Style);
+        if previous != u32::MAX {
+            sidebar.set_attr("data-toc-motion", "");
+        }
+        for (property, value) in [("--toc-top", top), ("--toc-height", height)] {
+            style.call(
+                Key::SetProperty,
+                &[Arg::literal(property), motion::pixels(value).arg()],
+            );
+        }
         if previous == active {
             return;
         }

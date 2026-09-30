@@ -10,7 +10,7 @@ fn animate(element: &Js, property: Key, from: Arg<'_>, to: Arg<'_>, duration: u3
     timing.set(Key::Easing, Arg::literal("cubic-bezier(0.22, 1, 0.36, 1)"));
     element.call(Key::Animate, &[keyframes.arg(), timing.arg()])
 }
-fn pixels(value: f64) -> Js {
+pub fn pixels(value: f64) -> Js {
     window()
         .call(Key::String, &[Arg::number(value)])
         .call(Key::Concat, &[Arg::literal("px")])

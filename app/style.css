@@ -407,23 +407,17 @@ small, time, summary {
   color: var(--text);
 }
 
-.desktop-toc a::before {
+.desktop-toc::before {
   content: "";
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: -24px;
+  top: 0;
+  left: 0;
   width: 2px;
+  height: var(--toc-height, 0px);
+  transform: translateY(var(--toc-top, 0px));
   background: var(--text);
-  opacity: 0;
-}
-
-.desktop-toc .nested-heading a::before {
-  left: -40px;
-}
-
-.desktop-toc a[aria-current="location"]::before {
   opacity: 0.55;
+  pointer-events: none;
 }
 
 .toc .nested-heading {
@@ -876,8 +870,8 @@ mark {
     transition: color 90ms var(--ease-out), text-decoration-color 90ms var(--ease-out);
   }
 
-  .desktop-toc a::before {
-    transition: opacity 90ms var(--ease-out);
+  .desktop-toc[data-toc-motion]::before {
+    transition: transform 180ms var(--ease-out), height 180ms var(--ease-out);
   }
 
   .post-row, .post-title a {
