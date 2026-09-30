@@ -2,7 +2,6 @@ use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
-use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use shared::{Catalog, page_metadata, tag_path};
@@ -13,10 +12,10 @@ use crate::{
     render,
 };
 
-fn hashed_json(dist: &Path, name: &str, value: &impl Serialize) -> Result<String> {
-    let bytes = serde_json::to_vec(value)?;
+fn hashed_index(dist: &Path, entries: &[shared::search::SearchEntry]) -> Result<String> {
+    let bytes = shared::search::encode_index(entries);
     let hash = format!("{:x}", Sha256::digest(&bytes));
-    let url = format!("/assets/{name}-{}.json", &hash[..16]);
+    let url = format!("/assets/search-{}.bin", &hash[..16]);
     fs::write(dist.join(url.trim_start_matches('/')), bytes)?;
     Ok(url)
 }
@@ -114,7 +113,7 @@ pub fn finish(
         .iter()
         .map(|post| shared::search::SearchEntry::from(&post.search))
         .collect();
-    let search_url = hashed_json(dist, "search", &search)?;
+    let search_url = hashed_index(dist, &search)?;
     let catalog = Catalog {
         site: content.site,
         posts: content
@@ -127,9 +126,7 @@ pub fn finish(
         preview,
     };
     let mut template = fs::read_to_string(dist.join("index.html"))?;
-    if std::env::var("TRUNK_PROFILE").as_deref() == Ok("release") {
-        template = crate::assets::optimize(dist, template)?;
-    }
+    template = crate::assets::build(root, dist, template)?;
     let mut routes = vec![
         "/".to_owned(),
         "/archive/".into(),

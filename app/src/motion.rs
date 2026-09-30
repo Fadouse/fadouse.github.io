@@ -1,122 +1,118 @@
-use alloc::string::String;
-
-use wasm_bindgen::{JsCast, prelude::wasm_bindgen};
-use web_sys::{Animation, Element, HtmlElement};
-
-use crate::browser::{document, required, window};
-
-// These standard browser methods are still gated by web-sys.
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(extends = Element, js_name = Element)]
-    type MotionElement;
-    #[wasm_bindgen(method, js_name = animate)]
-    fn animate(
-        this: &MotionElement,
-        keyframes: &js_sys::Object,
-        timing: &js_sys::Object,
-    ) -> Animation;
-    #[wasm_bindgen(method, js_name = getAnimations)]
-    fn animations(this: &MotionElement) -> js_sys::Array<Animation>;
+use crate::{
+    app,
+    browser::{Arg, Js, Key, document, required, window},
+};
+fn animate(element: &Js, property: Key, from: Arg<'_>, to: Arg<'_>, duration: f64) -> Js {
+    let keyframes = Js::object();
+    keyframes.set(property, Js::array(&[from, to]).arg());
+    let timing = Js::object();
+    timing.set(Key::Duration, Arg::number(duration));
+    timing.set(Key::Easing, Arg::literal("cubic-bezier(0.22, 1, 0.36, 1)"));
+    element.call(Key::Animate, &[keyframes.arg(), timing.arg()])
 }
-
-fn animate(element: &Element, property: &str, from: &str, to: &str, duration: f64) -> Animation {
-    let keyframes = js_sys::Object::new();
-    let _ = js_sys::Reflect::set(
-        &keyframes,
-        &property.into(),
-        &js_sys::Array::of2(&from.into(), &to.into()),
-    );
-    let timing = js_sys::Object::new();
-    let _ = js_sys::Reflect::set(&timing, &"duration".into(), &duration.into());
-    let _ = js_sys::Reflect::set(
-        &timing,
-        &"easing".into(),
-        &"cubic-bezier(0.22, 1, 0.36, 1)".into(),
-    );
-    element
-        .unchecked_ref::<MotionElement>()
-        .animate(&keyframes, &timing)
+fn pixels(value: f64) -> Js {
+    window()
+        .call(Key::String, &[Arg::number(value)])
+        .call(Key::Concat, &[Arg::literal("px")])
 }
-
-fn pixels(value: f64) -> String {
-    let mut value = crate::browser::number(value);
-    value.push_str("px");
-    value
+pub fn replace_html(current: &Js, html: &str, layout: bool) {
+    replace_bytes(current, html.as_bytes(), layout);
 }
-
-pub fn replace_html(current: &Element, html: &str, layout: bool) {
-    let incoming: Element = current.clone_node().unwrap().unchecked_into();
-    incoming.set_inner_html(html);
+pub fn replace_bytes(current: &Js, html: &[u8], layout: bool) {
+    replace_text(current, &Js::from_bytes(html), layout);
+}
+pub fn replace_text(current: &Js, html: &Js, layout: bool) {
+    let incoming = current.call(Key::CloneNode, &[]);
+    incoming.set(Key::InnerHTML, html.arg());
     replace(current, &incoming, layout);
 }
-
-pub fn replace(current: &Element, incoming: &Element, layout: bool) {
+pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     let reduced = window()
-        .match_media("(prefers-reduced-motion: reduce)")
-        .unwrap()
-        .unwrap()
-        .matches();
-    if reduced || current.child_element_count() == 0 {
-        current.replace_with_with_node_1(incoming).unwrap();
+        .call(
+            Key::MatchMedia,
+            &[Arg::literal("(prefers-reduced-motion: reduce)")],
+        )
+        .get(Key::Matches)
+        .truthy();
+    if reduced || current.get(Key::ChildElementCount).numeric() == 0.0 {
+        current.call(Key::ReplaceWith, &[incoming.arg()]);
         return;
     }
     let page = required("#page-content");
-    let previous_height = page.get_bounding_client_rect().height();
-    let bounds = current.get_bounding_client_rect();
+    let previous_height = page
+        .call(Key::GetBoundingClientRect, &[])
+        .get(Key::Height)
+        .numeric();
+    let bounds = current.call(Key::GetBoundingClientRect, &[]);
     let opacity = window()
-        .get_computed_style(current)
-        .unwrap()
-        .unwrap()
-        .get_property_value("opacity")
-        .unwrap();
-    for animation in current.unchecked_ref::<MotionElement>().animations().iter() {
-        animation.cancel();
-    }
-    for animation in page.unchecked_ref::<MotionElement>().animations().iter() {
-        if animation.id() == "content-layout" {
-            animation.cancel();
+        .call(Key::GetComputedStyle, &[current.arg()])
+        .call(Key::GetPropertyValue, &[Arg::literal("opacity")]);
+    for (element, only_layout) in [(current, false), (&page, true)] {
+        let animations = element.call(Key::GetAnimations, &[]);
+        for i in 0..animations.get(Key::Length).numeric() as u32 {
+            let animation = animations.call(Key::At, &[Arg::number(i as f64)]);
+            if !only_layout || animation.get(Key::Id).equal_text("content-layout") {
+                animation.call(Key::Cancel, &[]);
+            }
         }
     }
-    current.replace_with_with_node_1(incoming).unwrap();
-    let outgoing: &HtmlElement = current.unchecked_ref();
-    let _ = outgoing.remove_attribute("id");
-    let ids = outgoing.query_selector_all("[id]").unwrap();
-    for i in 0..ids.length() {
-        let _ = ids
-            .item(i)
-            .unwrap()
-            .unchecked_into::<Element>()
-            .remove_attribute("id");
+    current.call(Key::ReplaceWith, &[incoming.arg()]);
+    current.remove_attr("id");
+    let ids = current.call(Key::QuerySelectorAll, &[Arg::literal("[id]")]);
+    for i in 0..ids.get(Key::Length).numeric() as u32 {
+        ids.call(Key::Item, &[Arg::number(i as f64)])
+            .remove_attr("id");
     }
-    outgoing.set_inert(true);
-    let _ = outgoing.set_attribute("aria-hidden", "true");
-    let _ = outgoing.class_list().add_1("content-departing");
-    for (property, value) in [
-        ("left", bounds.left()),
-        ("top", bounds.top()),
-        ("width", bounds.width()),
+    current.set(Key::Inert, Arg::boolean(true));
+    current.set_attr("aria-hidden", "true");
+    current
+        .get(Key::ClassList)
+        .call(Key::Add, &[Arg::literal("content-departing")]);
+    let style = current.get(Key::Style);
+    for (property, key) in [
+        ("left", Key::Left),
+        ("top", Key::Top),
+        ("width", Key::Width),
     ] {
-        let _ = outgoing.style().set_property(property, &pixels(value));
+        style.call(
+            Key::SetProperty,
+            &[
+                Arg::string(property),
+                pixels(bounds.get(key).numeric()).arg(),
+            ],
+        );
     }
-    document().body().unwrap().append_child(outgoing).unwrap();
+    document()
+        .get(Key::Body)
+        .call(Key::AppendChild, &[current.arg()]);
     let page = required("#page-content");
-    let height = page.get_bounding_client_rect().height();
+    let height = page
+        .call(Key::GetBoundingClientRect, &[])
+        .get(Key::Height)
+        .numeric();
     if layout && (previous_height - height).abs() > 0.5 {
         animate(
             &page,
-            "height",
-            &pixels(previous_height),
-            &pixels(height),
+            Key::Height,
+            pixels(previous_height).arg(),
+            pixels(height).arg(),
             300.0,
         )
-        .set_id("content-layout");
+        .set(Key::Id, Arg::literal("content-layout"));
     }
-    let leaving = animate(outgoing, "opacity", &opacity, "0", 120.0);
-    animate(incoming, "opacity", "0", "1", 160.0);
-    let outgoing = outgoing.clone();
-    wasm_bindgen_futures::spawn_local(async move {
-        let _ = wasm_bindgen_futures::JsFuture::from(leaving.finished().unwrap()).await;
-        outgoing.remove();
-    });
+    let leaving = animate(
+        current,
+        Key::Opacity,
+        opacity.arg(),
+        Arg::literal("0"),
+        120.0,
+    );
+    animate(
+        incoming,
+        Key::Opacity,
+        Arg::literal("0"),
+        Arg::literal("1"),
+        160.0,
+    );
+    app().remove_after(*current, &leaving.get(Key::Finished));
 }

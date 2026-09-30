@@ -1,20 +1,22 @@
 trunk-version = "=0.21.14"
 
 [build]
-target = "app/index.html"
+target = "app/web/index.html"
 dist = "dist"
 public_url = "/"
 filehash = true
 minify = "on_release"
+inject_scripts = false
 
 [watch]
 watch = ["app", "shared", "xtask", "content", "site.toml", "Cargo.toml"]
 
 [[hooks]]
+stage = "pre_build"
+command = "cargo"
+command_arguments = ["build", "--locked", "--package", "app", "--target", "wasm32-unknown-unknown", "--release"]
+
+[[hooks]]
 stage = "post_build"
 command = "cargo"
 command_arguments = ["run", "--locked", "--quiet", "--package", "xtask", "--", "content"]
-
-[tools]
-wasm_bindgen = "0.2.126"
-wasm_opt = "version_123"
