@@ -1723,7 +1723,8 @@ pub fn render(tree: &Node, source: &str, display: bool) -> Result<Rendered> {
         if display { " math-display" } else { "" },
         if display { "block" } else { "inline" },
         mml(tree, context.style),
-        escape(source),
+        // Character references preserve CR/CRLF through HTML newline normalization.
+        escape(source).replace('\r', "&#13;"),
     );
     let fonts = layout
         .fonts

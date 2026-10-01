@@ -117,11 +117,11 @@ export default async function initialize(url, integrity) {
     A: (index, pointer, length) => {
       const end = pointer + length, data = bytes();
       while (pointer < end) {
-        const kind = data[pointer++], start = pointer;
+        const descriptor = data[pointer++], kind = descriptor & 127, start = pointer;
         while (pointer < end && data[pointer] !== 0) pointer++;
         const name = text(start, pointer - start);
         pointer++;
-        values[index].addEventListener(name, event => run(() => wasm.dispatch(kind, hold(event))));
+        values[index].addEventListener(name, event => run(() => wasm.dispatch(kind, hold(event))), Boolean(descriptor & 128));
       }
     },
     // promise

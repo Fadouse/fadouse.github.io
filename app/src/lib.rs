@@ -2,6 +2,7 @@
 extern crate alloc;
 
 mod browser;
+mod math_copy;
 mod motion;
 mod search;
 mod toc;
@@ -38,6 +39,7 @@ struct App {
     leaving: Js,
     search: search::Search,
     toc: toc::Toc,
+    math_copy: math_copy::MathCopy,
 }
 struct BrowserApp(UnsafeCell<MaybeUninit<App>>);
 // One main-thread instance is initialized before any callbacks; subsequent
@@ -77,6 +79,7 @@ pub extern "C" fn start() {
             leaving: map(),
             search: search::Search::default(),
             toc: toc::Toc::default(),
+            math_copy: math_copy::MathCopy::default(),
         })
     };
     browser::set_theme(&browser::saved_theme());
@@ -91,10 +94,15 @@ pub extern "C" fn start() {
     window()
         .get(Key::History)
         .set(Key::ScrollRestoration, Arg::literal("manual"));
-    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0");
-    window().listen(b"\x02popstate\0\x03scroll\0\x08resize\0\x09wheel\0\x09pointerdown\0");
+    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0\x0apointerover\0\x0bpointerout\0\x0cfocusin\0\x0dfocusout\0");
+    window().listen(b"\x02popstate\0\x83scroll\0\x08resize\0\x09wheel\0\x09pointerdown\0");
+    let viewport = window().get(Key::VisualViewport);
+    if !viewport.is_null() {
+        viewport.listen(b"\x0escroll\0\x0eresize\0");
+    }
     app().search.on_page();
     app().toc.on_page();
+    app().math_copy.on_page();
     browser::mark("app-mounted");
 }
 
@@ -105,9 +113,21 @@ pub extern "C" fn dispatch(kind: u32, value: u32) {
         0 => app().click(&event),
         1 => app().keydown(&event),
         2 => app().navigate(browser::url(), false, false),
-        3 => app().toc.request(),
-        8 => app().toc.refresh(),
-        9 => app().toc.cancel(),
+        3 => {
+            app().math_copy.close();
+            app().toc.request();
+        }
+        8 => {
+            app().math_copy.close();
+            app().toc.refresh();
+        }
+        9 => {
+            app().math_copy.pointer_down(&event);
+            app().toc.cancel();
+        }
+        10 | 12 => app().math_copy.enter(&event, kind == 12),
+        11 | 13 => app().math_copy.exit(&event, kind == 13),
+        14 => app().math_copy.close(),
         _ => app().search.event(kind, &event),
     }
 }
@@ -166,6 +186,10 @@ pub extern "C" fn timer(kind: u32, token: u32) {
         app().toc.update();
         return;
     }
+    if kind == 3 {
+        app().math_copy.timeout(token);
+        return;
+    }
     let list = if kind == 0 {
         &app().copies
     } else {
@@ -175,7 +199,14 @@ pub extern "C" fn timer(kind: u32, token: u32) {
     if !element.is_null() {
         list.call(Key::Delete, &[Arg::integer(token)]);
         if kind == 0 {
-            element.set_text("Copy");
+            if element
+                .call(Key::GetAttribute, &[Arg::literal("data-copy")])
+                .equal_text("math")
+            {
+                app().math_copy.reset_copy(token);
+            } else {
+                element.set_text("Copy");
+            }
         } else {
             element.call(Key::Remove, &[]);
         }
@@ -226,7 +257,10 @@ impl App {
         }
         let button = target.closest("button[data-copy]");
         if !button.is_null() {
-            self.copy_code(button);
+            self.copy(button);
+            return;
+        }
+        if self.math_copy.touch(event, target) {
             return;
         }
         if !target.closest("[data-retry]").is_null() {
@@ -277,6 +311,9 @@ impl App {
     }
     fn keydown(&self, event: &Js) {
         self.toc.cancel();
+        if self.math_copy.keydown(event) {
+            return;
+        }
         let key = event.get(Key::Key);
         if (event.boolean(Key::MetaKey) || event.boolean(Key::CtrlKey))
             && !event.boolean(Key::AltKey)
@@ -299,6 +336,7 @@ impl App {
         }
     }
     fn navigate(&self, url: Js, push: bool, focus_search: bool) {
+        self.math_copy.close();
         self.toc.cancel();
         self.record_scroll();
         let contents = query("#page-content .mobile-toc");
@@ -411,23 +449,36 @@ impl App {
         restore_position(url, position);
         self.search.on_page();
         self.toc.on_page();
+        self.math_copy.on_page();
         if focus_search {
             focus_search_input();
         }
         browser::mark("page-rendered");
     }
-    fn copy_code(&self, button: Js) {
-        let code = button
-            .closest(".code-block")
-            .query("code")
-            .get(Key::TextContent);
+    fn copy(&self, button: Js) {
         let token = self.token();
+        let text = if button
+            .call(Key::GetAttribute, &[Arg::literal("data-copy")])
+            .equal_text("math")
+        {
+            let text = self.math_copy.begin_copy(token);
+            if text.is_null() {
+                return;
+            }
+            text
+        } else {
+            button
+                .closest(".code-block")
+                .query("code")
+                .get(Key::TextContent)
+        };
+        required("#copy-status").set_text("");
         self.copies
             .call(Key::Set, &[Arg::integer(token), button.arg()]);
         match window()
             .get(Key::Navigator)
             .get(Key::Clipboard)
-            .try_call(Key::WriteText, &[code.arg()])
+            .try_call(Key::WriteText, &[text.arg()])
         {
             Ok(promise) => promise.subscribe(COPY, token),
             Err(_) => self.copied(token, false),
@@ -436,6 +487,13 @@ impl App {
     fn copied(&self, token: u32, copied: bool) {
         let button = self.copies.call(Key::Get, &[Arg::integer(token)]);
         if !button.is_null() {
+            if button
+                .call(Key::GetAttribute, &[Arg::literal("data-copy")])
+                .equal_text("math")
+                && !self.math_copy.finished(token)
+            {
+                return;
+            }
             let message = if copied { "Copied" } else { "Copy failed" };
             button.set_text(message);
             required("#copy-status").set_text(message);

@@ -106,6 +106,13 @@ fn reference_formula_categories_parse_and_render() {
     if let Ok(path) = std::env::var("MATH_GALLERY") {
         let directory = std::path::Path::new(&path);
         std::fs::create_dir_all(directory.join("assets")).unwrap();
+        let source = "\r\n\\text{你好 α ≤ β 🧮}\\quad x_1^2\r\n +\\frac{é}{2}\r\n";
+        let rendered = Renderer::default().render(source, true).unwrap();
+        std::fs::write(
+            directory.join("math-source.json"),
+            serde_json::to_vec(&serde_json::json!({"tex": source, "html": rendered.html})).unwrap(),
+        )
+        .unwrap();
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap();

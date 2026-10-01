@@ -371,8 +371,8 @@ impl Js {
     pub fn subscribe(self, kind: u32, token: u32) {
         unsafe { promise(self.0, kind, token) };
     }
-    // Each static descriptor is one callback kind followed by a NUL-terminated
-    // UTF-8 event name. The host only decodes and binds the supplied descriptors.
+    // Each descriptor is one callback kind (high bit enables capture) followed
+    // by a NUL-terminated event name. The host only binds these descriptors.
     pub fn listen(self, events: &'static [u8]) {
         unsafe { listen(self.0, events.as_ptr(), events.len()) };
     }
