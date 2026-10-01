@@ -1,0 +1,7 @@
+.math { position: relative; font-size: 1.21em; white-space: normal; overflow-wrap: normal; }
+.math-visual { display: inline-block; overflow: visible; max-width: none; color: inherit; }
+.math-accessible { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.math-display { display: block; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: .4em; margin-block: .5em; text-align: center; white-space: nowrap; }
+.math-tagged-line { display: inline-grid; align-items: baseline; min-width: 100%; }
+.math-body { text-align: center; }
+.math-tag { text-align: right; }

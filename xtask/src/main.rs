@@ -2,6 +2,7 @@ mod assets;
 mod content;
 mod highlight;
 mod markdown;
+mod math;
 mod output;
 mod render;
 

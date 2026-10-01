@@ -49,6 +49,8 @@ pub struct CompiledPost {
     pub summary: PostSummary,
     pub content: PostContent,
     pub search: SearchDocument,
+    pub math_fonts: std::collections::BTreeSet<String>,
+    pub has_math: bool,
 }
 
 pub struct Content {
@@ -122,6 +124,8 @@ fn parse_post(source: &str, media_dir: &Path) -> Result<Option<CompiledPost>> {
         },
         content: rendered.content,
         search,
+        math_fonts: rendered.math_fonts,
+        has_math: rendered.has_math,
     }))
 }
 

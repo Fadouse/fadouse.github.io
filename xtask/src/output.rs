@@ -20,7 +20,13 @@ fn hashed_index(dist: &Path, entries: &[shared::search::SearchEntry]) -> Result<
     Ok(url)
 }
 
-fn page_shell(template: &str, catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
+fn page_shell(
+    template: &str,
+    catalog: &Catalog,
+    posts: &[CompiledPost],
+    path: &str,
+    math_assets: Option<&crate::math::assets::Assets>,
+) -> String {
     let metadata = page_metadata(catalog, path);
     let robots = if metadata.noindex {
         "noindex,follow"
@@ -39,6 +45,16 @@ fn page_shell(template: &str, catalog: &Catalog, posts: &[CompiledPost], path: &
         },
     );
     let mut structured = if let Some(post) = catalog.posts.iter().find(|post| post.path() == path) {
+        if let Some(assets) = math_assets {
+            for font in &posts
+                .iter()
+                .find(|p| p.summary.path() == path)
+                .unwrap()
+                .math_fonts
+            {
+                head.push_str(&format!("<link data-page-meta rel=\"preload\" as=\"font\" type=\"font/woff2\" href=\"{}\" crossorigin>",assets.fonts[font]));
+            }
+        }
         head.push_str(&format!(
             "<meta data-page-meta property=\"article:published_time\" content=\"{}T00:00:00Z\">",
             post.date
@@ -127,6 +143,19 @@ pub fn finish(
     };
     let mut template = fs::read_to_string(dist.join("index.html"))?;
     template = crate::assets::build(root, dist, template)?;
+    let used_fonts = content
+        .posts
+        .iter()
+        .flat_map(|p| p.math_fonts.iter().cloned())
+        .collect();
+    let math_assets = if content.posts.iter().any(|post| post.has_math) {
+        Some(crate::math::assets::publish(root, dist, &used_fonts)?)
+    } else {
+        None
+    };
+    if let Some(assets) = &math_assets {
+        template = crate::assets::append_css(dist, &template, &assets.css)?;
+    }
     let mut routes = vec![
         "/".to_owned(),
         "/archive/".into(),
@@ -140,12 +169,24 @@ pub fn finish(
         write_route(
             dist,
             route,
-            &page_shell(&template, &catalog, &content.posts, route),
+            &page_shell(
+                &template,
+                &catalog,
+                &content.posts,
+                route,
+                math_assets.as_ref(),
+            ),
         )?;
     }
     fs::write(
         dist.join("404.html"),
-        page_shell(&template, &catalog, &content.posts, "/404/"),
+        page_shell(
+            &template,
+            &catalog,
+            &content.posts,
+            "/404/",
+            math_assets.as_ref(),
+        ),
     )?;
 
     let mut feed = format!(

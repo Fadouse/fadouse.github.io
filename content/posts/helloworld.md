@@ -213,6 +213,61 @@ An unfamiliar language label should still produce a readable block.
 hello -> world
 ```
 
+## Mathematics
+
+Mathematics can sit inside a sentence, such as $E = mc^2$, or have a line of its own.
+Fractions, roots, and operators retain their mathematical layout:
+
+$$
+x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+\qquad
+\sum_{k=0}^{n} k = \frac{n(n+1)}{2}
+$$
+
+### Matrices and aligned equations
+
+$$
+\begin{pmatrix}
+1 & 2 \\
+3 & 4
+\end{pmatrix}
+\begin{pmatrix}
+x \\
+y
+\end{pmatrix}
+=
+\begin{pmatrix}
+x + 2y \\
+3x + 4y
+\end{pmatrix}
+$$
+
+$$
+\begin{aligned}
+(a+b)^2 &= a^2 + 2ab + b^2 \\
+f(x) &= \begin{cases}
+x^2 & \text{if } x \geq 0 \\
+-x & \text{otherwise}
+\end{cases}
+\end{aligned}
+$$
+
+### A small macro
+
+Definitions can shorten a formula while keeping its meaning explicit:
+
+$$
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\norm{\mathbf{v}} = \sqrt{\sum_{i=1}^{n} v_i^2}
+$$
+
+The source stays literal in code: `$E = mc^2$`. An ordinary dollar sign is escaped:
+\$25. A display formula that is wider than the screen scrolls within the article.
+
 ## Words beyond English
 
 Hello, world. 你好，世界。こんにちは、世界。안녕하세요, 세계. Bonjour, le monde.

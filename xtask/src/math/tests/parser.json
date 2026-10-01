@@ -1,0 +1,1447 @@
+[
+  {
+    "line": 32,
+    "tex": "",
+    "valid": true
+  },
+  {
+    "line": 115,
+    "tex": "\\mathinner{\\langle{\\psi}\\rangle}",
+    "valid": true
+  },
+  {
+    "line": 116,
+    "tex": "\\frac 1 {\\mathinner{\\langle{\\psi}\\rangle}}",
+    "valid": true
+  },
+  {
+    "line": 182,
+    "tex": "\\KaTeX",
+    "valid": true
+  },
+  {
+    "line": 188,
+    "tex": "x^2",
+    "valid": true
+  },
+  {
+    "line": 192,
+    "tex": "x_3",
+    "valid": true
+  },
+  {
+    "line": 196,
+    "tex": "x^2_3",
+    "valid": true
+  },
+  {
+    "line": 198,
+    "tex": "x_2^3",
+    "valid": true
+  },
+  {
+    "line": 202,
+    "tex": "^3",
+    "valid": true
+  },
+  {
+    "line": 203,
+    "tex": "^3+",
+    "valid": true
+  },
+  {
+    "line": 204,
+    "tex": "_2",
+    "valid": true
+  },
+  {
+    "line": 205,
+    "tex": "^3_2",
+    "valid": true
+  },
+  {
+    "line": 206,
+    "tex": "_2^3",
+    "valid": true
+  },
+  {
+    "line": 250,
+    "tex": "x^x^x",
+    "valid": false
+  },
+  {
+    "line": 252,
+    "tex": "x_x_x",
+    "valid": false
+  },
+  {
+    "line": 254,
+    "tex": "x_x^x_x",
+    "valid": false
+  },
+  {
+    "line": 256,
+    "tex": "x_x^x^x",
+    "valid": false
+  },
+  {
+    "line": 258,
+    "tex": "x^x_x_x",
+    "valid": false
+  },
+  {
+    "line": 260,
+    "tex": "x^x_x^x",
+    "valid": false
+  },
+  {
+    "line": 264,
+    "tex": "x^{2+3}",
+    "valid": true
+  },
+  {
+    "line": 266,
+    "tex": "x_{3-2}",
+    "valid": true
+  },
+  {
+    "line": 268,
+    "tex": "x^{2+3}_3",
+    "valid": true
+  },
+  {
+    "line": 270,
+    "tex": "x^2_{3-2}",
+    "valid": true
+  },
+  {
+    "line": 272,
+    "tex": "x^{2+3}_{3-2}",
+    "valid": true
+  },
+  {
+    "line": 274,
+    "tex": "x_{3-2}^{2+3}",
+    "valid": true
+  },
+  {
+    "line": 276,
+    "tex": "x_3^{2+3}",
+    "valid": true
+  },
+  {
+    "line": 278,
+    "tex": "x_{3-2}^2",
+    "valid": true
+  },
+  {
+    "line": 282,
+    "tex": "x^{x^x}",
+    "valid": true
+  },
+  {
+    "line": 283,
+    "tex": "x^{x_x}",
+    "valid": true
+  },
+  {
+    "line": 284,
+    "tex": "x_{x^x}",
+    "valid": true
+  },
+  {
+    "line": 285,
+    "tex": "x_{x_x}",
+    "valid": true
+  },
+  {
+    "line": 293,
+    "tex": "\\hskip1em\\relax^2",
+    "valid": true
+  },
+  {
+    "line": 313,
+    "tex": "3\\nolimits_2^2",
+    "valid": false
+  },
+  {
+    "line": 314,
+    "tex": "\\sqrt\\limits_2^2",
+    "valid": false
+  },
+  {
+    "line": 315,
+    "tex": "45 +\\nolimits 45",
+    "valid": false
+  },
+  {
+    "line": 319,
+    "tex": "\\int\\limits_2^2 3",
+    "valid": true
+  },
+  {
+    "line": 320,
+    "tex": "\\sum\\nolimits_3^4 4",
+    "valid": true
+  },
+  {
+    "line": 324,
+    "tex": "\\int_2^2\\limits",
+    "valid": true
+  },
+  {
+    "line": 325,
+    "tex": "\\int^2\\nolimits_2",
+    "valid": true
+  },
+  {
+    "line": 326,
+    "tex": "\\int_2\\limits^2",
+    "valid": true
+  },
+  {
+    "line": 330,
+    "tex": "\\int_2\\nolimits^2\\limits 3",
+    "valid": true
+  },
+  {
+    "line": 331,
+    "tex": "\\int\\nolimits\\limits_2^2",
+    "valid": true
+  },
+  {
+    "line": 332,
+    "tex": "\\int\\limits\\limits\\limits_2^2",
+    "valid": true
+  },
+  {
+    "line": 348,
+    "tex": "{xy}",
+    "valid": true
+  },
+  {
+    "line": 365,
+    "tex": "\\begingroup xy \\endgroup",
+    "valid": true
+  },
+  {
+    "line": 369,
+    "tex": "\\begingroup xy",
+    "valid": false
+  },
+  {
+    "line": 370,
+    "tex": "\\begingroup xy }",
+    "valid": false
+  },
+  {
+    "line": 392,
+    "tex": "\\Large x",
+    "valid": true
+  },
+  {
+    "line": 393,
+    "tex": "abc {abc \\Large xyz} abc",
+    "valid": true
+  },
+  {
+    "line": 454,
+    "tex": "\\div",
+    "valid": true
+  },
+  {
+    "line": 458,
+    "tex": "\\blue x",
+    "valid": true
+  },
+  {
+    "line": 462,
+    "tex": "\\frac 1 2",
+    "valid": true
+  },
+  {
+    "line": 466,
+    "tex": "\\blue",
+    "valid": false
+  },
+  {
+    "line": 470,
+    "tex": "\\frac",
+    "valid": false
+  },
+  {
+    "line": 472,
+    "tex": "\\frac 1",
+    "valid": false
+  },
+  {
+    "line": 476,
+    "tex": "\\redx",
+    "valid": false
+  },
+  {
+    "line": 480,
+    "tex": "\\frac12",
+    "valid": true
+  },
+  {
+    "line": 484,
+    "tex": "\\;x",
+    "valid": true
+  },
+  {
+    "line": 821,
+    "tex": "\\text{graph: $y = mx + b$}",
+    "valid": true
+  },
+  {
+    "line": 822,
+    "tex": "\\text{graph: \\(y = mx + b\\)}",
+    "valid": true
+  },
+  {
+    "line": 826,
+    "tex": "\\text{hello $x + \\text{world $y$} + z$}",
+    "valid": true
+  },
+  {
+    "line": 827,
+    "tex": "\\text{hello \\(x + \\text{world $y$} + z\\)}",
+    "valid": true
+  },
+  {
+    "line": 828,
+    "tex": "\\text{hello $x + \\text{world \\(y\\)} + z$}",
+    "valid": true
+  },
+  {
+    "line": 829,
+    "tex": "\\text{hello \\(x + \\text{world \\(y\\)} + z\\)}",
+    "valid": true
+  },
+  {
+    "line": 833,
+    "tex": "\\(",
+    "valid": false
+  },
+  {
+    "line": 834,
+    "tex": "\\text{$\\(x\\)$}",
+    "valid": false
+  },
+  {
+    "line": 838,
+    "tex": "$x$",
+    "valid": false
+  },
+  {
+    "line": 839,
+    "tex": "\\text{\\($x$\\)}",
+    "valid": false
+  },
+  {
+    "line": 843,
+    "tex": "\\)",
+    "valid": false
+  },
+  {
+    "line": 844,
+    "tex": "\\text{\\)}",
+    "valid": false
+  },
+  {
+    "line": 848,
+    "tex": "$",
+    "valid": false
+  },
+  {
+    "line": 849,
+    "tex": "\\text{$}",
+    "valid": false
+  },
+  {
+    "line": 853,
+    "tex": "\\text{$x\\)}",
+    "valid": false
+  },
+  {
+    "line": 854,
+    "tex": "\\text{\\(x$}",
+    "valid": false
+  },
+  {
+    "line": 867,
+    "tex": "\\text{a \\vdots b ⋮ d}",
+    "valid": true
+  },
+  {
+    "line": 1089,
+    "tex": "\\rlap{\\,/}{=}",
+    "valid": true
+  },
+  {
+    "line": 1090,
+    "tex": "\\mathrlap{\\,/}{=}",
+    "valid": true
+  },
+  {
+    "line": 1091,
+    "tex": "{=}\\llap{/\\,}",
+    "valid": true
+  },
+  {
+    "line": 1092,
+    "tex": "{=}\\mathllap{/\\,}",
+    "valid": true
+  },
+  {
+    "line": 1093,
+    "tex": "\\sum_{\\clap{ABCDEFG}}",
+    "valid": true
+  },
+  {
+    "line": 1094,
+    "tex": "\\sum_{\\mathclap{ABCDEFG}}",
+    "valid": true
+  },
+  {
+    "line": 1098,
+    "tex": "\\mathrlap{\\frac{a}{b}}{=}",
+    "valid": true
+  },
+  {
+    "line": 1099,
+    "tex": "{=}\\mathllap{\\frac{a}{b}}",
+    "valid": true
+  },
+  {
+    "line": 1100,
+    "tex": "\\sum_{\\mathclap{\\frac{a}{b}}}",
+    "valid": true
+  },
+  {
+    "line": 1104,
+    "tex": "\\rlap{\\frac{a}{b}}{=}",
+    "valid": false
+  },
+  {
+    "line": 1105,
+    "tex": "{=}\\llap{\\frac{a}{b}}",
+    "valid": false
+  },
+  {
+    "line": 1106,
+    "tex": "\\sum_{\\clap{\\frac{a}{b}}}",
+    "valid": false
+  },
+  {
+    "line": 1360,
+    "tex": "\\begin{matrix}a&b\\\\c&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1364,
+    "tex": "\\begin{array}{cc}a&b\\\\c&d\\end{array}",
+    "valid": true
+  },
+  {
+    "line": 1373,
+    "tex": "\\begin{matrix}\\hline a&b\\\\ \\hline c&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1374,
+    "tex": "\\begin{matrix}\\hline a&b\\cr \\hline c&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1375,
+    "tex": "\\begin{matrix}\\hdashline a&b\\\\ \\hdashline c&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1386,
+    "tex": "\\hline",
+    "valid": false
+  },
+  {
+    "line": 1390,
+    "tex": "\\begin{matrix}a&b\\\\c&d\\end{pmatrix}",
+    "valid": false
+  },
+  {
+    "line": 1394,
+    "tex": "\\begin{matrix}a&b\\\\c&d\\right{pmatrix}",
+    "valid": false
+  },
+  {
+    "line": 1398,
+    "tex": "\\begin{matrix}a&b\\\\c&d",
+    "valid": false
+  },
+  {
+    "line": 1402,
+    "tex": "{\\begin{matrix}a&b\\\\c&d}\\end{matrix}",
+    "valid": false
+  },
+  {
+    "line": 1406,
+    "tex": "\\begin{matrix}0&1\\over2&3\\\\4&5&6\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1416,
+    "tex": "\\begin{matrix}a&b\\cr c&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1417,
+    "tex": "\\begin{matrix}a&b\\\\c&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1421,
+    "tex": "\\begin{matrix}a&b\\cr[c]&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1425,
+    "tex": "\\begin{matrix}a&b\\\\ [c]&d\\end{matrix}",
+    "valid": true
+  },
+  {
+    "line": 1426,
+    "tex": "a\\\\ [b]",
+    "valid": true
+  },
+  {
+    "line": 1447,
+    "tex": "\\begin{matrix*}[] a & -1 \\\\ -1 & d \\end{matrix*}",
+    "valid": false
+  },
+  {
+    "line": 1493,
+    "tex": "\\frac 2 3",
+    "valid": true
+  },
+  {
+    "line": 1512,
+    "tex": "x^",
+    "valid": false
+  },
+  {
+    "line": 1513,
+    "tex": "x_",
+    "valid": false
+  },
+  {
+    "line": 1588,
+    "tex": "x''''",
+    "valid": true
+  },
+  {
+    "line": 1589,
+    "tex": "x_2''",
+    "valid": true
+  },
+  {
+    "line": 1590,
+    "tex": "x''_2",
+    "valid": true
+  },
+  {
+    "line": 1594,
+    "tex": "\\sqrt^23",
+    "valid": false
+  },
+  {
+    "line": 1595,
+    "tex": "\\frac^234",
+    "valid": false
+  },
+  {
+    "line": 1596,
+    "tex": "\\frac2^34",
+    "valid": false
+  },
+  {
+    "line": 1600,
+    "tex": "\\sqrt2^3",
+    "valid": true
+  },
+  {
+    "line": 1601,
+    "tex": "\\frac23^4",
+    "valid": true
+  },
+  {
+    "line": 1605,
+    "tex": "\\sqrt \\frac x y",
+    "valid": true
+  },
+  {
+    "line": 1606,
+    "tex": "\\sqrt \\text x",
+    "valid": true
+  },
+  {
+    "line": 1607,
+    "tex": "x^\\frac x y",
+    "valid": true
+  },
+  {
+    "line": 1608,
+    "tex": "x_\\text x",
+    "valid": true
+  },
+  {
+    "line": 1661,
+    "tex": "\\displaystyle x",
+    "valid": true
+  },
+  {
+    "line": 1662,
+    "tex": "\\textstyle x",
+    "valid": true
+  },
+  {
+    "line": 1663,
+    "tex": "\\scriptstyle x",
+    "valid": true
+  },
+  {
+    "line": 1664,
+    "tex": "\\scriptscriptstyle x",
+    "valid": true
+  },
+  {
+    "line": 1776,
+    "tex": "\\mathrm x",
+    "valid": true
+  },
+  {
+    "line": 1777,
+    "tex": "\\mathbb x",
+    "valid": true
+  },
+  {
+    "line": 1778,
+    "tex": "\\mathit x",
+    "valid": true
+  },
+  {
+    "line": 1779,
+    "tex": "\\mathnormal x",
+    "valid": true
+  },
+  {
+    "line": 1780,
+    "tex": "\\mathrm {x + 1}",
+    "valid": true
+  },
+  {
+    "line": 1781,
+    "tex": "\\mathbb {x + 1}",
+    "valid": true
+  },
+  {
+    "line": 1782,
+    "tex": "\\mathit {x + 1}",
+    "valid": true
+  },
+  {
+    "line": 1783,
+    "tex": "\\mathnormal {x + 1}",
+    "valid": true
+  },
+  {
+    "line": 1787,
+    "tex": "\\mathcal{ABC123}",
+    "valid": true
+  },
+  {
+    "line": 1788,
+    "tex": "\\mathfrak{abcABC123}",
+    "valid": true
+  },
+  {
+    "line": 1841,
+    "tex": "\\mathbb \\mathrm R",
+    "valid": false
+  },
+  {
+    "line": 1856,
+    "tex": "e^\\mathbf{x}",
+    "valid": true
+  },
+  {
+    "line": 1896,
+    "tex": "\\raisebox{5pt}{\\frac a b}",
+    "valid": false
+  },
+  {
+    "line": 1897,
+    "tex": "\\raisebox{-5pt}{\\frac a b}",
+    "valid": false
+  },
+  {
+    "line": 1901,
+    "tex": "\\hbox{\\frac a b}",
+    "valid": false
+  },
+  {
+    "line": 1960,
+    "tex": "x%y",
+    "valid": true
+  },
+  {
+    "line": 2553,
+    "tex": "\\vec{x}",
+    "valid": true
+  },
+  {
+    "line": 2554,
+    "tex": "\\vec{x^2}",
+    "valid": true
+  },
+  {
+    "line": 2555,
+    "tex": "\\vec{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2556,
+    "tex": "\\vec x",
+    "valid": true
+  },
+  {
+    "line": 2557,
+    "tex": "\\underbar{X}",
+    "valid": true
+  },
+  {
+    "line": 2573,
+    "tex": "\\widehat{x}",
+    "valid": true
+  },
+  {
+    "line": 2574,
+    "tex": "\\widecheck{x}",
+    "valid": true
+  },
+  {
+    "line": 2578,
+    "tex": "\\overrightarrow{x}",
+    "valid": true
+  },
+  {
+    "line": 2659,
+    "tex": "\\underrightarrow{x}",
+    "valid": true
+  },
+  {
+    "line": 2660,
+    "tex": "\\underrightarrow{x^2}",
+    "valid": true
+  },
+  {
+    "line": 2661,
+    "tex": "\\underrightarrow{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2662,
+    "tex": "\\underrightarrow x",
+    "valid": true
+  },
+  {
+    "line": 2698,
+    "tex": "\\xrightarrow{x}",
+    "valid": true
+  },
+  {
+    "line": 2699,
+    "tex": "\\xrightarrow{x^2}",
+    "valid": true
+  },
+  {
+    "line": 2700,
+    "tex": "\\xrightarrow{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2701,
+    "tex": "\\xrightarrow x",
+    "valid": true
+  },
+  {
+    "line": 2702,
+    "tex": "\\xrightarrow[under]{over}",
+    "valid": true
+  },
+  {
+    "line": 2739,
+    "tex": "\\overbrace{x}",
+    "valid": true
+  },
+  {
+    "line": 2740,
+    "tex": "\\overbrace{x^2}",
+    "valid": true
+  },
+  {
+    "line": 2741,
+    "tex": "\\overbrace{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2742,
+    "tex": "\\overbrace x",
+    "valid": true
+  },
+  {
+    "line": 2743,
+    "tex": "\\underbrace{x}_2",
+    "valid": true
+  },
+  {
+    "line": 2744,
+    "tex": "\\underbrace{x}_2^2",
+    "valid": true
+  },
+  {
+    "line": 2780,
+    "tex": "\\overbracket{x}",
+    "valid": true
+  },
+  {
+    "line": 2781,
+    "tex": "\\underbracket{x}_2",
+    "valid": true
+  },
+  {
+    "line": 2819,
+    "tex": "\\boxed{x}",
+    "valid": true
+  },
+  {
+    "line": 2820,
+    "tex": "\\boxed{x^2}",
+    "valid": true
+  },
+  {
+    "line": 2821,
+    "tex": "\\boxed{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2822,
+    "tex": "\\boxed x",
+    "valid": true
+  },
+  {
+    "line": 2851,
+    "tex": "\\fbox{\\frac a b}",
+    "valid": false
+  },
+  {
+    "line": 2857,
+    "tex": "\\colorbox{red}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2858,
+    "tex": "\\colorbox{red}{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2859,
+    "tex": "\\colorbox{red} x",
+    "valid": true
+  },
+  {
+    "line": 2863,
+    "tex": "\\colorbox{red}{\\alpha}",
+    "valid": false
+  },
+  {
+    "line": 2864,
+    "tex": "\\colorbox{red}{\\frac{a}{b}}",
+    "valid": false
+  },
+  {
+    "line": 2868,
+    "tex": "\\colorbox{red}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2869,
+    "tex": "\\colorbox{#197}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2870,
+    "tex": "\\colorbox{#1a9b7c}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2893,
+    "tex": "\\fcolorbox{blue}{yellow}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2894,
+    "tex": "\\fcolorbox{blue}{yellow}{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2895,
+    "tex": "\\fcolorbox{blue}{yellow} x",
+    "valid": true
+  },
+  {
+    "line": 2899,
+    "tex": "\\fcolorbox{blue}{yellow}{\\alpha}",
+    "valid": false
+  },
+  {
+    "line": 2900,
+    "tex": "\\fcolorbox{blue}{yellow}{\\frac{a}{b}}",
+    "valid": false
+  },
+  {
+    "line": 2904,
+    "tex": "\\fcolorbox{blue}{yellow}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2905,
+    "tex": "\\fcolorbox{blue}{#197}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2906,
+    "tex": "\\fcolorbox{blue}{#1a9b7c}{a b}",
+    "valid": true
+  },
+  {
+    "line": 2929,
+    "tex": "\\cancel{x}",
+    "valid": true
+  },
+  {
+    "line": 2930,
+    "tex": "\\cancel{x^2}",
+    "valid": true
+  },
+  {
+    "line": 2931,
+    "tex": "\\cancel{x}^2",
+    "valid": true
+  },
+  {
+    "line": 2932,
+    "tex": "\\cancel x",
+    "valid": true
+  },
+  {
+    "line": 2972,
+    "tex": "\\text{\\sout{abc}}",
+    "valid": true
+  },
+  {
+    "line": 2982,
+    "tex": "a_{\\angl{n}}",
+    "valid": true
+  },
+  {
+    "line": 2985,
+    "tex": "\\text{a_{\\angl{n}}}",
+    "valid": false
+  },
+  {
+    "line": 3000,
+    "tex": "\\text{\\phase{-78.2^\\circ}}",
+    "valid": false
+  },
+  {
+    "line": 3009,
+    "tex": "\\phantom{x}",
+    "valid": true
+  },
+  {
+    "line": 3010,
+    "tex": "\\phantom{x^2}",
+    "valid": true
+  },
+  {
+    "line": 3011,
+    "tex": "\\phantom{x}^2",
+    "valid": true
+  },
+  {
+    "line": 3012,
+    "tex": "\\phantom x",
+    "valid": true
+  },
+  {
+    "line": 3013,
+    "tex": "\\hphantom{x}",
+    "valid": true
+  },
+  {
+    "line": 3014,
+    "tex": "\\hphantom{x^2}",
+    "valid": true
+  },
+  {
+    "line": 3015,
+    "tex": "\\hphantom{x}^2",
+    "valid": true
+  },
+  {
+    "line": 3016,
+    "tex": "\\hphantom x",
+    "valid": true
+  },
+  {
+    "line": 3058,
+    "tex": "\\smash{x}",
+    "valid": true
+  },
+  {
+    "line": 3059,
+    "tex": "\\smash{x^2}",
+    "valid": true
+  },
+  {
+    "line": 3060,
+    "tex": "\\smash{x}^2",
+    "valid": true
+  },
+  {
+    "line": 3061,
+    "tex": "\\smash x",
+    "valid": true
+  },
+  {
+    "line": 3063,
+    "tex": "\\smash[b]{x}",
+    "valid": true
+  },
+  {
+    "line": 3064,
+    "tex": "\\smash[b]{x^2}",
+    "valid": true
+  },
+  {
+    "line": 3065,
+    "tex": "\\smash[b]{x}^2",
+    "valid": true
+  },
+  {
+    "line": 3066,
+    "tex": "\\smash[b] x",
+    "valid": true
+  },
+  {
+    "line": 3068,
+    "tex": "\\smash[]{x}",
+    "valid": true
+  },
+  {
+    "line": 3069,
+    "tex": "\\smash[]{x^2}",
+    "valid": true
+  },
+  {
+    "line": 3070,
+    "tex": "\\smash[]{x}^2",
+    "valid": true
+  },
+  {
+    "line": 3071,
+    "tex": "\\smash[] x",
+    "valid": true
+  },
+  {
+    "line": 3109,
+    "tex": "\\frac[1]{2}{3}",
+    "valid": true
+  },
+  {
+    "line": 3111,
+    "tex": "\\rule[0.2em]{1em}{1em}",
+    "valid": true
+  },
+  {
+    "line": 3115,
+    "tex": "\\sqrt[3]{2}",
+    "valid": true
+  },
+  {
+    "line": 3119,
+    "tex": "\\sqrt{2}",
+    "valid": true
+  },
+  {
+    "line": 3120,
+    "tex": "\\rule{1em}{2em}",
+    "valid": true
+  },
+  {
+    "line": 3124,
+    "tex": "\\rule[1]{2em}{3em}",
+    "valid": false
+  },
+  {
+    "line": 3128,
+    "tex": "\\sqrt[",
+    "valid": false
+  },
+  {
+    "line": 3168,
+    "tex": "\\begin{subarray}{cc}a \\\\ b\\end{subarray}",
+    "valid": false
+  },
+  {
+    "line": 3169,
+    "tex": "\\begin{subarray}{c}a & b \\\\ c & d\\end{subarray}",
+    "valid": false
+  },
+  {
+    "line": 3221,
+    "tex": "\\begin{aligned}a&=b&c&=d\\\\e&=f\\end{aligned}",
+    "valid": true
+  },
+  {
+    "line": 3225,
+    "tex": "\\begin{aligned}[a]&[b]\\\\ [c]&[d]\\end{aligned}",
+    "valid": true
+  },
+  {
+    "line": 3229,
+    "tex": "\\begin{aligned}[a]&[b]\\\\[c]&[d]\\end{aligned}",
+    "valid": false
+  },
+  {
+    "line": 3261,
+    "tex": "\\begin{gather}a+b\\\\c+d\\end{gather}",
+    "valid": false
+  },
+  {
+    "line": 3262,
+    "tex": "\\begin{gather*}a+b\\\\c+d\\end{gather*}",
+    "valid": false
+  },
+  {
+    "line": 3263,
+    "tex": "\\begin{align}a&=b+c\\\\d+e&=f\\end{align}",
+    "valid": false
+  },
+  {
+    "line": 3264,
+    "tex": "\\begin{align*}a&=b+c\\\\d+e&=f\\end{align*}",
+    "valid": false
+  },
+  {
+    "line": 3265,
+    "tex": "\\begin{alignat}{2}10&x+ &3&y = 2\\\\3&x+&13&y = 4\\end{alignat}",
+    "valid": false
+  },
+  {
+    "line": 3266,
+    "tex": "\\begin{alignat*}{2}10&x+ &3&y = 2\\\\3&x+&13&y = 4\\end{alignat*}",
+    "valid": false
+  },
+  {
+    "line": 3267,
+    "tex": "\\begin{equation}a=b+c\\end{equation}",
+    "valid": false
+  },
+  {
+    "line": 3268,
+    "tex": "\\begin{split}a &=b+c\\\\&=e+f\\end{split}",
+    "valid": false
+  },
+  {
+    "line": 3269,
+    "tex": "\\begin{CD}A @>a>> B \\\\@VbVV @AAcA\\\\C @= D\\end{CD}",
+    "valid": false
+  },
+  {
+    "line": 3387,
+    "tex": "\\href{http://example.com/{a}{bar}",
+    "valid": false
+  },
+  {
+    "line": 3388,
+    "tex": "\\href{http://example.com/}a}{bar}",
+    "valid": false
+  },
+  {
+    "line": 3389,
+    "tex": "\\url{http://example.com/{a}",
+    "valid": false
+  },
+  {
+    "line": 3390,
+    "tex": "\\url{http://example.com/}a}",
+    "valid": false
+  },
+  {
+    "line": 3484,
+    "tex": "\\includegraphics{https://cdn.kastatic.org/images/apple-touch-icon-57x57-precomposed.new.png}",
+    "valid": true
+  },
+  {
+    "line": 3671,
+    "tex": "\\text{\\' }",
+    "valid": true
+  },
+  {
+    "line": 3714,
+    "tex": "\\expandafter\\foo\\def\\foo{x}",
+    "valid": false
+  },
+  {
+    "line": 3870,
+    "tex": "\\char",
+    "valid": false
+  },
+  {
+    "line": 3872,
+    "tex": "\\char'",
+    "valid": false
+  },
+  {
+    "line": 3873,
+    "tex": "\\char\"",
+    "valid": false
+  },
+  {
+    "line": 3874,
+    "tex": "\\char'a",
+    "valid": false
+  },
+  {
+    "line": 3875,
+    "tex": "\\char\"g",
+    "valid": false
+  },
+  {
+    "line": 3876,
+    "tex": "\\char\"g",
+    "valid": false
+  },
+  {
+    "line": 3885,
+    "tex": "\\text{\\@char{6 5}}",
+    "valid": false
+  },
+  {
+    "line": 3931,
+    "tex": "\\gdef\\foo#2{}",
+    "valid": false
+  },
+  {
+    "line": 3932,
+    "tex": "\\gdef\\foo#a{}",
+    "valid": false
+  },
+  {
+    "line": 3933,
+    "tex": "\\gdef\\foo#1#3{}",
+    "valid": false
+  },
+  {
+    "line": 3934,
+    "tex": "\\gdef\\foo#1#2#3#4#5#6#7#8#9{}",
+    "valid": true
+  },
+  {
+    "line": 3935,
+    "tex": "\\gdef\\foo#1#2#3#4#5#6#7#8#9#10{}",
+    "valid": false
+  },
+  {
+    "line": 3936,
+    "tex": "\\gdef\\foo1",
+    "valid": false
+  },
+  {
+    "line": 3937,
+    "tex": "\\gdef{\\foo}{}",
+    "valid": false
+  },
+  {
+    "line": 3938,
+    "tex": "\\gdef\\foo\\bar",
+    "valid": false
+  },
+  {
+    "line": 3939,
+    "tex": "\\gdef{\\foo\\bar}{}",
+    "valid": false
+  },
+  {
+    "line": 3940,
+    "tex": "\\gdef{}{}",
+    "valid": false
+  },
+  {
+    "line": 3947,
+    "tex": "\\gdef\\foo|{}\\foo",
+    "valid": false
+  },
+  {
+    "line": 3948,
+    "tex": "\\gdef\\foo#1|{#1}\\foo1",
+    "valid": false
+  },
+  {
+    "line": 3949,
+    "tex": "\\gdef\\foo#1|{#1}\\foo1}|",
+    "valid": false
+  },
+  {
+    "line": 3959,
+    "tex": "\\xdef\\bar{\\foo}",
+    "valid": false
+  },
+  {
+    "line": 3964,
+    "tex": "2^\\def\\foo{1}2",
+    "valid": false
+  },
+  {
+    "line": 3989,
+    "tex": "\\global\\foo",
+    "valid": false
+  },
+  {
+    "line": 3990,
+    "tex": "\\global\\bar x",
+    "valid": false
+  },
+  {
+    "line": 3997,
+    "tex": "\\long\\foo",
+    "valid": false
+  },
+  {
+    "line": 4112,
+    "tex": "\\newcommand\\bar{x^2}\\bar+\\bar",
+    "valid": false
+  },
+  {
+    "line": 4113,
+    "tex": "\\newcommand{\\bar}{x^2}\\bar+\\bar",
+    "valid": false
+  },
+  {
+    "line": 4115,
+    "tex": "\\newcommand\\lambda{x^2}\\lambda",
+    "valid": false
+  },
+  {
+    "line": 4116,
+    "tex": "\\newcommand\\textdollar{x^2}\\textdollar",
+    "valid": false
+  },
+  {
+    "line": 4118,
+    "tex": "\\newcommand{\\foo}{1}\\foo\\newcommand{\\foo}{2}\\foo",
+    "valid": false
+  },
+  {
+    "line": 4120,
+    "tex": "\\newcommand\\limits{}",
+    "valid": false
+  },
+  {
+    "line": 4124,
+    "tex": "\\renewcommand\\foo{x^2}\\foo+\\foo",
+    "valid": false
+  },
+  {
+    "line": 4125,
+    "tex": "\\renewcommand{\\foo}{x^2}\\foo+\\foo",
+    "valid": false
+  },
+  {
+    "line": 4150,
+    "tex": "\\newcommand\\foo[x]{}",
+    "valid": false
+  },
+  {
+    "line": 4151,
+    "tex": "\\newcommand\\foo[1.5]{}",
+    "valid": false
+  },
+  {
+    "line": 4236,
+    "tex": "\\tag{hi}x+y",
+    "valid": false
+  },
+  {
+    "line": 4396,
+    "tex": "ấā́ắ\\text{ấā́ắ}",
+    "valid": true
+  },
+  {
+    "line": 4403,
+    "tex": "ấā́ắ\\text{ấā́ắ}",
+    "valid": true
+  },
+  {
+    "line": 4409,
+    "tex": "∉∤∦≁≆≠≨≩≮≯≰≱⊀⊁⊈⊉⊊⊋⊬⊭⊮⊯⋠⋡⋦⋧⋨⋩⋬⋭⪇⪈⪉⪊⪵⪶⪹⪺⫋⫌",
+    "valid": true
+  },
+  {
+    "line": 4418,
+    "tex": "⊶⊷",
+    "valid": true
+  },
+  {
+    "line": 4540,
+    "tex": "\\gdef\\foo{1}\\foo",
+    "valid": true
+  },
+  {
+    "line": 4691,
+    "tex": "\\text{é試}",
+    "valid": true
+  },
+  {
+    "line": 4692,
+    "tex": "\\text{é試}",
+    "valid": true
+  },
+  {
+    "line": 4693,
+    "tex": "\\text{é試}",
+    "valid": true
+  },
+  {
+    "line": 4793,
+    "tex": "\\message{Hello, world}",
+    "valid": true
+  },
+  {
+    "line": 4802,
+    "tex": "\\errmessage{Hello, world}",
+    "valid": true
+  },
+  {
+    "line": 4811,
+    "tex": "\\kern2\\relax em",
+    "valid": false
+  },
+  {
+    "line": 4845,
+    "tex": "\\reflectbox{x^2}",
+    "valid": false
+  }
+]

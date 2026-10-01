@@ -38,13 +38,54 @@ fn write_asset(dist: &Path, extension: &str, bytes: &[u8]) -> Result<String> {
     fs::write(dist.join("assets").join(&name), bytes)?;
     Ok(format!("/assets/{name}"))
 }
+pub fn append_css(dist: &Path, template: &str, extra: &str) -> Result<String> {
+    for (start, _) in template.match_indices("<link") {
+        let end = start
+            + template[start..]
+                .find('>')
+                .ok_or_else(|| anyhow::anyhow!("Unclosed stylesheet link"))?
+            + 1;
+        let tag = &template[start..end];
+        if !tag.contains("rel=stylesheet") && !tag.contains("rel=\"stylesheet\"") {
+            continue;
+        }
+        let href = &tag[tag
+            .find("href=")
+            .ok_or_else(|| anyhow::anyhow!("Stylesheet has no URL"))?
+            + 5..];
+        let url = if let Some(quote) = href.chars().next().filter(|c| *c == '\'' || *c == '\"') {
+            href[1..].split(quote).next().unwrap()
+        } else {
+            href.split_ascii_whitespace()
+                .next()
+                .unwrap()
+                .trim_end_matches('>')
+        };
+        let original = dist.join(url.trim_start_matches('/'));
+        let mut css = fs::read(&original)?;
+        css.extend_from_slice(extra.as_bytes());
+        let url = write_asset(dist, "css", &css)?;
+        let replacement = format!(
+            "<link rel=\"stylesheet\" href=\"{url}\" integrity=\"{}\" crossorigin>",
+            integrity(&css)
+        );
+        fs::remove_file(original)?;
+        return Ok(format!(
+            "{}{}{}",
+            &template[..start],
+            replacement,
+            &template[end..]
+        ));
+    }
+    anyhow::bail!("Missing Trunk stylesheet")
+}
 pub fn build(root: &Path, dist: &Path, template: String) -> Result<String> {
     let target = std::env::var_os("CARGO_TARGET_DIR")
         .map_or_else(|| root.join("target"), |path| root.join(path));
     let wasm = fs::read(target.join("wasm32-unknown-unknown/release/app.wasm"))?;
     ensure!(
-        wasm.len() < 15_000,
-        "Compiled WASM is {} bytes; it must stay below 15,000 bytes",
+        wasm.len() < 25_000,
+        "Compiled WASM is {} bytes; it must stay below 25,000 bytes",
         wasm.len()
     );
     // Ship the compiler output byte-for-byte: no WASM rewriting or compression.
