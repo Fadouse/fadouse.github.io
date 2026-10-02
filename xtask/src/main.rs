@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 mod assets;
+mod compression;
 mod content;
 mod highlight;
 mod markdown;
 mod math;
 mod output;
 mod render;
+mod serve;
 
 use std::{
     env, fs,
@@ -46,6 +48,15 @@ enum Task {
         #[arg(long)]
         preview: bool,
     },
+    /// Preview an existing release build with Brotli/Gzip content negotiation.
+    Serve {
+        #[arg(long, default_value = "dist")]
+        dist: PathBuf,
+        #[arg(long, default_value_t = 8187)]
+        port: u16,
+        #[arg(long, default_value = "127.0.0.1")]
+        host: IpAddr,
+    },
     #[command(hide = true)]
     Content {
         #[arg(long, env = "TRUNK_STAGING_DIR")]
@@ -66,6 +77,9 @@ fn main() -> Result<()> {
     let mut trunk = Command::new("trunk");
     trunk.current_dir(&root).env("NO_COLOR", "true");
     match Cli::parse().command {
+        Task::Serve { dist, port, host } => {
+            return serve::run(&root.join(dist), host, port);
+        }
         Task::Dev { port, host } => {
             let address = TcpListener::bind((host, port))?.local_addr()?;
             trunk

@@ -248,6 +248,7 @@ pub fn finish(
     fs::write(dist.join("_redirects"), "/about / 301\n/about/ / 301\n")?;
     copy_media(&root.join("content/media"), &dist.join("media"))?;
     fs::copy(root.join("LICENSE"), dist.join("LICENSE.txt"))?;
+    crate::compression::publish(dist)?;
 
     println!(
         "Built {} articles and {} page entries.",

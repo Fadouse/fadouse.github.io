@@ -91,7 +91,7 @@ pub fn build(root: &Path, dist: &Path, template: String) -> Result<String> {
         "Compiled WASM is {} bytes; it must stay below 15,000 bytes",
         wasm.len()
     );
-    // Ship the compiler output byte-for-byte: no WASM rewriting or compression.
+    // Keep the compiler output byte-for-byte; HTTP encodings are separate files.
     let wasm_url = write_asset(dist, "wasm", &wasm)?;
     let keys: serde_json::Map<String, serde_json::Value> =
         serde_json::from_str(&fs::read_to_string(root.join("app/dom.json"))?)?;
