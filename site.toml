@@ -1,4 +1,21 @@
 title = "Fadouse"
-description = "A personal collection of notes and ideas."
-intro = ""
-about = ""
+description = "YanXin Li (Fadouse) — security research, evasion and defense, and agent tooling."
+author = "YanXin Li"
+intro = "I’m YanXin Li, also known as Fadouse."
+about = "I work on security research and agent tooling. My work spans Windows evasion and defense, agent harnesses, and contributions to the Linux kernel."
+
+[[focus]]
+title = "Evasion & Defense"
+description = "Windows internals, defense mechanisms, and how protections behave."
+
+[[focus]]
+title = "Harness & Agentic"
+description = "Efficient agent harnesses with programmatic calls, persistence, and interfaces that make complex work easier to follow."
+
+[[links]]
+label = "GitHub"
+url = "https://github.com/Fadouse"
+
+[[links]]
+label = "fadouse@pm.me"
+url = "mailto:fadouse@pm.me"

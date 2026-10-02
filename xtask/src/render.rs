@@ -12,10 +12,9 @@ pub fn frame(catalog: &Catalog, path: &str, body: &str) -> String {
     let brand_tag = if home { "h1" } else { "div" };
     let mut navigation = String::new();
     for (href, label) in [
-        ("/", "Writing"),
-        ("/archive/", "Archive"),
+        ("/", "Home"),
+        ("/archive/", "Writing"),
         ("/tags/", "Tags"),
-        ("/about/", "About"),
         ("/search/", "Search"),
     ] {
         let active = if path == href || (href != "/" && path.starts_with(href)) {
@@ -121,6 +120,56 @@ fn contents(headings: &[Heading]) -> String {
     html
 }
 
+fn profile(catalog: &Catalog) -> String {
+    let site = &catalog.site;
+    let mut html = "<div class=\"profile\"><section class=\"profile-section\" aria-labelledby=\"about-heading\"><h2 class=\"profile-label\" id=\"about-heading\">About</h2><div class=\"profile-content\">".to_owned();
+    if !site.intro.is_empty() {
+        write!(
+            html,
+            "<p class=\"profile-intro\">{}</p>",
+            escape(&site.intro)
+        )
+        .unwrap();
+    }
+    if !site.about.is_empty() {
+        write!(
+            html,
+            "<p class=\"profile-copy\">{}</p>",
+            escape(&site.about)
+        )
+        .unwrap();
+    }
+    html.push_str("</div></section>");
+    if !site.focus.is_empty() {
+        html.push_str("<section class=\"profile-section\" aria-labelledby=\"focus-heading\"><h2 class=\"profile-label\" id=\"focus-heading\">Focus</h2><div class=\"profile-content\"><ul class=\"focus-list\">");
+        for item in &site.focus {
+            write!(
+                html,
+                "<li><h3>{}</h3><p>{}</p></li>",
+                escape(&item.title),
+                escape(&item.description)
+            )
+            .unwrap();
+        }
+        html.push_str("</ul></div></section>");
+    }
+    if !site.links.is_empty() {
+        html.push_str("<section class=\"profile-section\" aria-labelledby=\"contact-heading\"><h2 class=\"profile-label\" id=\"contact-heading\">Contact</h2><div class=\"profile-content\"><ul class=\"profile-links\">");
+        for link in &site.links {
+            write!(
+                html,
+                "<li><a href=\"{}\">{} <span aria-hidden=\"true\">↗</span></a></li>",
+                escape(&link.url),
+                escape(&link.label)
+            )
+            .unwrap();
+        }
+        html.push_str("</ul></div></section>");
+    }
+    html.push_str("</div>");
+    html
+}
+
 fn article(post: &CompiledPost, posts: &[CompiledPost], index: usize) -> String {
     let summary = &post.summary;
     let updated = summary
@@ -183,22 +232,9 @@ fn article(post: &CompiledPost, posts: &[CompiledPost], index: usize) -> String 
 pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
     let all: Vec<_> = catalog.posts.iter().collect();
     match path {
-        "/" => {
-            let intro = if catalog.site.intro.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    "<p class=\"introduction\">{}</p>",
-                    escape(&catalog.site.intro)
-                )
-            };
-            format!(
-                "{intro}<section aria-labelledby=\"writing-heading\"><div class=\"section-heading\"><h2 id=\"writing-heading\">Writing</h2></div>{}</section>",
-                post_list(&all[..all.len().min(12)])
-            )
-        }
+        "/" => profile(catalog),
         "/archive/" => {
-            let mut html = heading("Archive", &count(all.len(), "post"));
+            let mut html = heading("Writing", &count(all.len(), "post"));
             if all.is_empty() {
                 html.push_str(&post_list(&[]));
             }
@@ -234,20 +270,6 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
             html.push_str("</ul>");
             html
         }
-        "/about/" => format!(
-            "{}<p class=\"{}\">{}</p>",
-            heading("About", ""),
-            if catalog.site.about.is_empty() {
-                "empty-state"
-            } else {
-                "about-copy"
-            },
-            if catalog.site.about.is_empty() {
-                "Nothing here yet.".into()
-            } else {
-                escape(&catalog.site.about)
-            }
-        ),
         "/search/" => format!(
             r#"{}<form class="search-form" role="search" action="/search/" method="get"><label for="search-input">Search titles, tags, and articles.</label><div class="search-field"><input id="search-input" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Type to search…"><button type="submit">Search →</button></div></form><div id="search-results"><p class="muted" role="status">Start with a word or phrase.</p></div><noscript><p>Enable JavaScript to search.</p></noscript><template id="search-error"><div class="error-state" role="alert"><h2>Unable to load search.</h2><p>Check your connection and try again.</p><button type="button" data-retry>Retry ↗</button></div></template><template id="search-layout"><p class="muted" role="status"></p><div class="search-results"></div></template><template id="search-entry"><article><h2 class="post-title" dir="auto"><a></a></h2><p dir="auto"></p></article></template>"#,
             heading("Search", "")
@@ -271,7 +293,7 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
                 )
             } else {
                 format!(
-                    "{}<p>The page you requested does not exist.</p><a href=\"/\">Back to writing →</a>",
+                    "{}<p>The page you requested does not exist.</p><a href=\"/\">Back to home →</a>",
                     heading("Page not found", "404")
                 )
             }

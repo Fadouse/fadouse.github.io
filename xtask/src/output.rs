@@ -47,7 +47,7 @@ fn page_shell(
             "website"
         },
     );
-    let mut structured = if let Some(post) = catalog.posts.iter().find(|post| post.path() == path) {
+    let structured = if let Some(post) = catalog.posts.iter().find(|post| post.path() == path) {
         if let Some(assets) = math_assets {
             for font in &posts
                 .iter()
@@ -76,15 +76,12 @@ fn page_shell(
             .filter(|name| !name.trim().is_empty())
         {
             value["author"] =
-                json!({"@type":"Person","name":author,"url":format!("{}/about/",catalog.site.url)});
+                json!({"@type":"Person","name":author,"url":format!("{}/",catalog.site.url)});
         }
         value
     } else {
         json!({"@context":"https://schema.org", "@type":if path == "/" { "WebSite" } else { "CollectionPage" }, "name":metadata.title, "description":metadata.description, "url":metadata.canonical})
     };
-    if path == "/about/" {
-        structured["@type"] = json!("AboutPage");
-    }
     head.push_str(&format!("<meta data-page-meta property=\"og:site_name\" content=\"{}\"><script data-page-meta type=\"application/ld+json\">{}</script>", escape(&catalog.site.title), structured.to_string().replace('<', "\\u003c")));
     template
         .replace("</head>", &format!("{head}</head>"))
@@ -163,7 +160,6 @@ pub fn finish(
         "/".to_owned(),
         "/archive/".into(),
         "/tags/".into(),
-        "/about/".into(),
         "/search/".into(),
     ];
     routes.extend(catalog.posts.iter().map(|post| post.path()));
@@ -249,6 +245,7 @@ pub fn finish(
             "{preview_header}/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n"
         ),
     )?;
+    fs::write(dist.join("_redirects"), "/about / 301\n/about/ / 301\n")?;
     copy_media(&root.join("content/media"), &dist.join("media"))?;
     fs::copy(root.join("LICENSE"), dist.join("LICENSE.txt"))?;
 

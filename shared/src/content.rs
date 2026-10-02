@@ -26,9 +26,25 @@ pub struct SiteConfig {
     #[serde(default)]
     pub about: String,
     #[serde(default)]
+    pub focus: Vec<FocusItem>,
+    #[serde(default)]
+    pub links: Vec<ProfileLink>,
+    #[serde(default)]
     pub url: String,
     #[serde(default)]
     pub author: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct FocusItem {
+    pub title: String,
+    pub description: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct ProfileLink {
+    pub label: String,
+    pub url: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -112,10 +128,9 @@ pub fn page_metadata(catalog: &Catalog, path: &str) -> PageMetadata {
     } else {
         let label = match path.as_str() {
             "/" => "",
-            "/archive/" => "Archive",
+            "/archive/" => "Writing",
             "/tags/" => "Tags",
             "/search/" => "Search",
-            "/about/" => "About",
             _ => "Page not found",
         };
         (
