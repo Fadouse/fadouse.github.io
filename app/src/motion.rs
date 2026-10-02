@@ -15,9 +15,7 @@ fn animate(element: Js, property: Key, from: Arg<'_>, to: Arg<'_>, duration: u32
     element.call(Key::Animate, &[keyframes.arg(), timing.arg()])
 }
 pub fn pixels(value: f64) -> Js {
-    window()
-        .call(Key::String, &[Arg::number(value)])
-        .call(Key::Concat, &[Arg::literal(lit!("px"))])
+    crate::browser::suffixed_number(value, lit!("px"))
 }
 pub fn reduced() -> bool {
     window()
@@ -100,20 +98,20 @@ pub fn replace(current: Js, incoming: Js, layout: bool, path: Js) {
             let top = old.number(Key::Top);
             let new_top = new.number(Key::Top);
             if top >= viewport
-                || old.number(Key::Bottom) <= 0.0
+                || old.number(Key::Bottom) <= scalar(0)
                 || new_top >= viewport
-                || new.number(Key::Bottom) <= 0.0
+                || new.number(Key::Bottom) <= scalar(0)
             {
                 continue;
             }
             let scale = if i == 0 {
                 old.number(Key::Width) / new.number(Key::Width)
             } else {
-                1.0
+                scalar(1)
             };
             let x = old.number(Key::Left) - new.number(Key::Left);
             let y = top - new_top;
-            if scale == 1.0 && x == 0.0 && y == 0.0 {
+            if scale == scalar(1) && x == scalar(0) && y == scalar(0) {
                 continue;
             }
             let matrix = Js::construct(Key::DomMatrix, &[])
@@ -144,4 +142,10 @@ pub fn replace(current: Js, incoming: Js, layout: bool, path: Js) {
         130,
     );
     app().remove_after(current, &leaving.get(Key::Finished));
+}
+
+// Keep exact integer geometry constants compact in the compiler artifact.
+#[inline(never)]
+pub fn scalar(value: u32) -> f64 {
+    value as f64
 }

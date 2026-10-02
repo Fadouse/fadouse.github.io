@@ -20,6 +20,7 @@ export default async function initialize(url, integrity) {
   let encoded;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
+  const validator = new TextDecoder("utf-8", { fatal: true });
   let memoryBytes;
   const bytes = () => {
     if (memoryBytes?.buffer !== wasm.memory.buffer) memoryBytes = new Uint8Array(wasm.memory.buffer);
@@ -60,6 +61,13 @@ export default async function initialize(url, integrity) {
     const fields = new Uint32Array(wasm.memory.buffer, pointer, length);
     return Array.from({ length }, (_, index) => argument(fields[index]));
   };
+  const rejected = (kind, token, error) => run(() => kind & 0x80000000
+    ? wasm.resolved(kind, token, hold(error))
+    : wasm.rejected(kind, token));
+  const subscribe = (promise, kind, token) => promise.then(
+    value => run(() => wasm.resolved(kind & 0x7fffffff, token, hold(value))),
+    error => rejected(kind, token, error)
+  );
   const dom = {
     // retain
     a: index => { pinned.add(index); return index; },
@@ -72,7 +80,7 @@ export default async function initialize(url, integrity) {
     // array
     f: (pointer, length) => hold(args(pointer, length)),
     // get
-    g: (index, key) => hold(values[index][names[key + 64]]),
+    g: (index, key) => hold(values[index]?.[names[key + 64]]),
     // get_number
     h: (index, key) => Number(values[index][names[key + 64]]),
     // get_boolean
@@ -131,12 +139,7 @@ export default async function initialize(url, integrity) {
       }
     },
     // promise
-    B: (index, kind, token) => {
-      values[index].then(
-        value => run(() => wasm.resolved(kind, token, hold(value))),
-        () => run(() => wasm.rejected(kind, token))
-      );
-    },
+    B: (index, kind, token) => subscribe(values[index], kind, token),
     // timeout
     C: (milliseconds, kind, token) => setTimeout(() => run(() => wasm.timer(kind, token)), milliseconds),
     // frame
@@ -178,7 +181,21 @@ export default async function initialize(url, integrity) {
     // literal_pool
     S: pointer => { literalBase = pointer; },
     // get2
-    R: (index, key, next) => hold(values[index][names[key + 64]][names[next + 64]])
+    R: (index, key, next) => hold(values[index][names[key + 64]]?.[names[next + 64]]),
+    // invoke_async1: browser invocation and promise marshalling only.
+    V: (index, key, data, kind, token) => {
+      try { subscribe(values[index][names[key + 64]](argument(data)), kind, token); }
+      catch (error) { rejected(kind, token, error); }
+    },
+    // format_number: native conversion for a browser string with a unit.
+    W: (value, suffix) => hold(String(value) + argument(suffix)),
+    // validate_utf8: the browser's native codec, without retaining its result.
+    X: (pointer, length) => {
+      try { validator.decode(bytes().subarray(pointer, pointer + length)); return true; }
+      catch { return false; }
+    },
+    // sort_u64: built-in numeric buffer sorting, with no comparator callback.
+    Y: (pointer, length) => new BigUint64Array(wasm.memory.buffer, pointer, length).sort()
   };
   ({ instance: { exports: wasm } } = await WebAssembly.instantiateStreaming(fetch(url, { integrity }), { d: dom }));
   run(() => wasm.start());

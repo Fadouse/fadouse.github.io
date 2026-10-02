@@ -67,12 +67,8 @@ impl Search {
         container.set_attr(lit!("data-search-ready"), lit!(""));
         self.render();
         if load {
-            let url = required(lit!(".site-shell"))
-                .call(Key::GetAttribute, &[Arg::literal(lit!("data-search-url"))]);
-            match window().try_call(Key::Fetch, &[url.arg()]) {
-                Ok(promise) => promise.subscribe(INDEX_RESPONSE, 0),
-                Err(_) => self.loaded(None),
-            }
+            let url = required(lit!(".site-shell")).get_attr(lit!("data-search-url"));
+            window().request(Key::Fetch, url.arg(), INDEX_RESPONSE, 0);
         }
     }
     pub fn loaded(&self, entries: Option<Index>) {

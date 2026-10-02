@@ -103,6 +103,10 @@ unsafe extern "C" {
     fn from_literal(value: u32) -> u32;
     #[link_name = "U"]
     fn get_integer(value: u32, key: Key) -> u32;
+    #[link_name = "V"]
+    fn invoke_async1(value: u32, key: Key, data: u32, kind: u32, token: u32);
+    #[link_name = "W"]
+    fn format_number(value: f64, suffix: u32) -> u32;
 }
 
 // One word per argument: scoped browser handle, boolean, or tagged C string.
@@ -361,8 +365,23 @@ impl Js {
     pub fn set_text(self, text: Literal) {
         self.set(Key::TextContent, Arg::literal(text));
     }
+    #[inline(never)]
+    pub fn token_value(self, token: u32) -> Self {
+        self.call(Key::Get, &[Arg::integer(token)])
+    }
+    #[inline(never)]
+    pub fn delete_token(self, token: u32) {
+        self.call_void(Key::Delete, Arg::integer(token));
+    }
+    #[inline(never)]
+    pub fn get_attr(self, name: Literal) -> Self {
+        self.call(Key::GetAttribute, &[Arg::literal(name)])
+    }
     pub fn subscribe(self, kind: u32, token: u32) {
         unsafe { promise(self.0, kind, token) };
+    }
+    pub fn request(self, name: Key, data: Arg<'_>, kind: u32, token: u32) {
+        unsafe { invoke_async1(self.0, name, data.data, kind, token) };
     }
     // Each descriptor is one callback kind (high bit enables capture) followed
     // by a NUL-terminated event name. The host only binds these descriptors.
@@ -380,6 +399,9 @@ pub fn delay(milliseconds: i32, kind: u32, token: u32) {
 }
 pub fn next_frame(kind: u32, token: u32) {
     unsafe { frame(kind, token) };
+}
+pub fn suffixed_number(value: f64, suffix: Literal) -> Js {
+    Js(unsafe { format_number(value, suffix.0) })
 }
 pub fn window() -> Js {
     Js(1)

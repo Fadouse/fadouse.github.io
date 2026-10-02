@@ -50,7 +50,7 @@ impl MathCopy {
     fn cancel_copy(&self) {
         let token = self.copy.replace(0);
         if token != 0 {
-            app().copies.call(Key::Delete, &[Arg::integer(token)]);
+            app().operations.delete_token(token);
         }
     }
 

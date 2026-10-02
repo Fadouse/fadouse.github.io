@@ -236,7 +236,7 @@ fn code_block(language: &str, code: &str) -> Result<String> {
         language
     };
     Ok(format!(
-        "<div class=\"code-block\"><div class=\"code-toolbar\"><span>{}</span><button type=\"button\" data-copy=\"code\" aria-label=\"Copy code\">Copy</button></div><pre><code>{}</code></pre></div>",
+        "<div class=\"code-block\"><div class=\"code-toolbar\"><span>{}</span><button type=\"button\" data-copy=\"code\" value=\"Copy\" aria-label=\"Copy code\">Copy</button></div><pre><code>{}</code></pre></div>",
         escape(label),
         crate::highlight::render(language, code)?
     ))
@@ -415,7 +415,7 @@ pub fn render(source: &str, media_dir: &Path) -> Result<RenderedMarkdown> {
     let mut html = ammonia::Builder::default()
         .add_tags(["button", "input"])
         .add_generic_attributes(["class", "id", "lang", "dir", "aria-label"])
-        .add_tag_attributes("button", ["type", "data-copy"])
+        .add_tag_attributes("button", ["type", "data-copy", "value"])
         .add_tag_attributes("input", ["type", "checked", "disabled"])
         .add_tag_attributes("img", ["loading", "decoding", "width", "height"])
         .clean(&rendered)

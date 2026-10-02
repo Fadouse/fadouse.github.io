@@ -113,6 +113,19 @@ struct Reader<'a>(&'a [u8]);
 
 // Boolean validation avoids constructing UTF-8 error reports that the index
 // loader never uses. Reject overlong encodings, surrogates and values > U+10FFFF.
+#[cfg(target_arch = "wasm32")]
+fn valid_utf8(bytes: &[u8]) -> bool {
+    #[link(wasm_import_module = "d")]
+    unsafe extern "C" {
+        #[link_name = "X"]
+        fn validate_utf8(pointer: *const u8, length: usize) -> bool;
+    }
+    // The native browser codec validates bytes; parsing and borrowed index
+    // views remain in Rust. No strings cross this binding or get retained.
+    unsafe { validate_utf8(bytes.as_ptr(), bytes.len()) }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn valid_utf8(bytes: &[u8]) -> bool {
     let mut remaining = 0;
     let mut minimum = 0x80;
@@ -404,21 +417,55 @@ pub fn search_terms<'a, S: AsRef<str>, B: SpanList>(
                 }
                 score += weight;
             }
-            ranked.push((usize::MAX - score, index));
+            ranked.push(Pair::new(usize::MAX - score, index));
         }
     }
     sort_pairs(&mut ranked);
-    ranked.into_iter().map(|(_, index)| SearchHit {
-        entry: &entries[index],
-        excerpt: entries[index].body.excerpt(terms),
+    ranked.into_iter().map(|pair| {
+        let (_, index) = pair.parts();
+        SearchHit {
+            entry: &entries[index],
+            excerpt: entries[index].body.excerpt(terms),
+        }
     })
 }
 
-// Search scores and highlight ranges share this in-place O(n log n) sort.
-fn sort_pairs(pairs: &mut [(usize, usize)]) {
+// One word preserves both full-width offsets in lexicographic order.
+#[cfg(target_pointer_width = "32")]
+type PairWord = u64;
+#[cfg(target_pointer_width = "64")]
+type PairWord = u128;
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+struct Pair(PairWord);
+impl Pair {
+    fn new(first: usize, second: usize) -> Self {
+        Self(((first as PairWord) << usize::BITS) | second as PairWord)
+    }
+    fn parts(self) -> (usize, usize) {
+        ((self.0 >> usize::BITS) as usize, self.0 as usize)
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn sort_pairs(pairs: &mut [Pair]) {
+    #[link(wasm_import_module = "d")]
+    unsafe extern "C" {
+        #[link_name = "Y"]
+        fn sort_u64(pointer: *mut PairWord, length: usize);
+    }
+    // Pair is an aligned u64 on wasm32. The synchronous native numeric sort
+    // compares unsigned words exactly; scores/ranges stay entirely in Rust.
+    unsafe { sort_u64(pairs.as_mut_ptr().cast(), pairs.len()) };
+}
+
+// Native builds share this in-place O(n log n) sort.
+#[cfg(not(target_arch = "wasm32"))]
+fn sort_pairs(pairs: &mut [Pair]) {
     // The private caller guarantees root < end <= pairs.len(). Child indices
     // are checked against end before access, and each move follows that child.
-    unsafe fn sift(pairs: &mut [(usize, usize)], mut root: usize, end: usize) {
+    unsafe fn sift(pairs: &mut [Pair], mut root: usize, end: usize) {
         let value = unsafe { *pairs.get_unchecked(root) };
         loop {
             let mut child = root * 2 + 1;
@@ -461,7 +508,7 @@ fn sort_pairs(pairs: &mut [(usize, usize)]) {
 
 pub struct Highlight<'a> {
     bytes: &'a [u8],
-    ranges: Vec<(usize, usize)>,
+    ranges: Vec<Pair>,
     index: usize,
     cursor: usize,
     end: usize,
@@ -469,7 +516,8 @@ pub struct Highlight<'a> {
 impl<'a> Iterator for Highlight<'a> {
     type Item = (&'a [u8], bool);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(&(start, end)) = self.ranges.get(self.index) {
+        if let Some(&pair) = self.ranges.get(self.index) {
+            let (start, end) = pair.parts();
             if self.cursor < start {
                 let previous = self.cursor;
                 self.cursor = start;
@@ -513,18 +561,19 @@ pub fn highlight_bytes<'a, S: AsRef<str>, B: SpanList>(
             let end = text.source_offset(start + term.len(), true).min(range.end);
             let start = source_start.max(range.start);
             if start < end {
-                ranges.push((start, end));
+                ranges.push(Pair::new(start, end));
             }
         }
     }
     sort_pairs(&mut ranges);
     let mut merged = 0;
     for index in 0..ranges.len() {
-        let (start, end) = ranges[index];
-        if merged > 0 && start <= ranges[merged - 1].1 {
-            ranges[merged - 1].1 = ranges[merged - 1].1.max(end);
+        let (start, end) = ranges[index].parts();
+        if merged > 0 && start <= ranges[merged - 1].parts().1 {
+            let (previous_start, previous_end) = ranges[merged - 1].parts();
+            ranges[merged - 1] = Pair::new(previous_start, previous_end.max(end));
         } else {
-            ranges[merged] = (start, end);
+            ranges[merged] = ranges[index];
             merged += 1;
         }
     }
@@ -564,12 +613,35 @@ mod tests {
             }
             let mut expected = pairs.clone();
             expected.sort_unstable();
-            sort_pairs(&mut pairs);
-            assert_eq!(pairs, expected);
-            pairs.reverse();
-            sort_pairs(&mut pairs);
-            assert_eq!(pairs, expected);
+            let mut packed: Vec<_> = pairs.iter().map(|&(a, b)| Pair::new(a, b)).collect();
+            sort_pairs(&mut packed);
+            assert_eq!(
+                packed.iter().map(|pair| pair.parts()).collect::<Vec<_>>(),
+                expected
+            );
+            packed.reverse();
+            sort_pairs(&mut packed);
+            assert_eq!(
+                packed.iter().map(|pair| pair.parts()).collect::<Vec<_>>(),
+                expected
+            );
         }
+        let mut extremes = [
+            Pair::new(usize::MAX, 0),
+            Pair::new(0, usize::MAX),
+            Pair::new(usize::MAX, usize::MAX),
+            Pair::new(0, 0),
+        ];
+        sort_pairs(&mut extremes);
+        assert_eq!(
+            extremes.map(Pair::parts),
+            [
+                (0, 0),
+                (0, usize::MAX),
+                (usize::MAX, 0),
+                (usize::MAX, usize::MAX)
+            ]
+        );
         for text in ["Hello 世界, café 👩‍💻", "aaaaabaaaaab", "", "ﬃ ﬃ cafe\u{301}"] {
             for start in (0..text.len()).filter(|offset| text.is_char_boundary(*offset)) {
                 for end in (start + 1..=text.len()).filter(|offset| text.is_char_boundary(*offset))

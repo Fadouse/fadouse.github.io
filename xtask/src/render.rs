@@ -170,7 +170,7 @@ fn profile(catalog: &Catalog) -> String {
     html
 }
 
-fn article(post: &CompiledPost, posts: &[CompiledPost], index: usize) -> String {
+fn article(catalog: &Catalog, post: &CompiledPost, posts: &[CompiledPost], index: usize) -> String {
     let summary = &post.summary;
     let updated = summary
         .updated
@@ -198,11 +198,13 @@ fn article(post: &CompiledPost, posts: &[CompiledPost], index: usize) -> String 
     }
     write!(
         html,
-        "<article class=\"prose\" lang=\"{}\" dir=\"auto\">{}</article></div></div>",
+        "<article class=\"prose\" lang=\"{}\" dir=\"auto\">{}</article>",
         escape(summary.lang.as_deref().unwrap_or("und")),
         post.content.html
     )
     .unwrap();
+    let url = escape(&format!("{}{}", catalog.site.url, summary.path()));
+    write!(html, r#"<footer class="article-footer" aria-labelledby="share-heading"><h2 id="share-heading">Share this article</h2><div class="article-actions"><button type="button" data-share value="Share">Share</button><button type="button" data-copy="link" value="Copy link">Copy link</button></div><noscript><a href="{url}">Article link ↗</a></noscript></footer></div></div>"#).unwrap();
     if posts.len() > 1 {
         html.push_str("<nav class=\"post-pagination\" aria-label=\"More articles\"><div>");
         if let Some(older) = posts.get(index + 1) {
@@ -280,7 +282,7 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
                 .enumerate()
                 .find(|(_, post)| post.summary.path() == path)
             {
-                article(post, posts, index)
+                article(catalog, post, posts, index)
             } else if let Some(tag) = catalog.tags.iter().find(|tag| tag_path(&tag.name) == path) {
                 let matching: Vec<_> = all
                     .into_iter()

@@ -31,6 +31,9 @@ const INDEX_RESPONSE: u32 = 2;
 const INDEX_BYTES: u32 = 3;
 const COPY: u32 = 4;
 const LEAVING: u32 = 5;
+const SHARE: u32 = 6;
+// Opt in to receiving the browser error as a scoped value through resolved.
+const SHARE_ERROR: u32 = SHARE | 0x8000_0000;
 
 struct App {
     path: Cell<Js>,
@@ -38,9 +41,7 @@ struct App {
     next: Cell<u32>,
     pages: Js,
     positions: Js,
-    requests: Js,
-    copies: Js,
-    leaving: Js,
+    operations: Js,
     search: search::Search,
     toc: toc::Toc,
     math_copy: math_copy::MathCopy,
@@ -82,18 +83,24 @@ pub extern "C" fn start() {
             next: Cell::new(0),
             pages: map(),
             positions: map(),
-            requests: map(),
-            copies: map(),
-            leaving: map(),
+            operations: map(),
             search: search::Search::default(),
             toc: toc::Toc::default(),
             math_copy: math_copy::MathCopy::new(),
         })
     };
     browser::set_theme(&browser::saved_theme());
-    document()
-        .get2(Key::DocumentElement, Key::ClassList)
-        .call(Key::Add, &[Arg::literal(lit!("js"))]);
+    document().get2(Key::DocumentElement, Key::ClassList).call(
+        Key::Add,
+        &[
+            Arg::literal(lit!("js")),
+            Arg::literal(if window().get(Key::Navigator).boolean(Key::Share) {
+                lit!("native-share")
+            } else {
+                lit!("js")
+            }),
+        ],
+    );
     app().pages.call(
         Key::Set,
         &[app().path.get().arg(), page_read(document()).arg()],
@@ -109,6 +116,7 @@ pub extern "C" fn start() {
     }
     app().search.on_page();
     app().toc.on_page();
+    scroll_to_hash(browser::url(), false);
     browser::mark(lit!("app-mounted"));
 }
 
@@ -142,7 +150,7 @@ pub extern "C" fn resolved(kind: u32, token: u32, value: u32) {
     let value = Js::owned(value);
     match kind {
         PAGE_RESPONSE | INDEX_RESPONSE => {
-            if !value.boolean(Key::Ok) && value.number(Key::Status) != 404.0 {
+            if !value.boolean(Key::Ok) && value.number(Key::Status) != motion::scalar(404) {
                 rejected(kind, token);
                 return;
             }
@@ -151,10 +159,8 @@ pub extern "C" fn resolved(kind: u32, token: u32, value: u32) {
             } else {
                 (Key::ArrayBuffer, INDEX_BYTES)
             };
-            match value.try_call(method, &[]) {
-                Ok(promise) => promise.subscribe(next, token),
-                Err(_) => rejected(next, token),
-            }
+            // These zero-argument WebIDL methods ignore the extra null value.
+            value.request(method, Arg::null(), next, token);
         }
         PAGE_TEXT => {
             let parser = Js::construct(Key::DomParser, &[]);
@@ -172,6 +178,8 @@ pub extern "C" fn resolved(kind: u32, token: u32, value: u32) {
             .loaded(shared::search::Index::new(value.bytes())),
         COPY => app().copied(token, true),
         LEAVING => timer(1, token),
+        SHARE => app().shared(token, false),
+        SHARE_ERROR => app().shared(token, !value.get(Key::Name).equal_text(lit!("AbortError"))),
         _ => {}
     }
 }
@@ -191,20 +199,17 @@ pub extern "C" fn timer(kind: u32, token: u32) {
         app().toc.update();
         return;
     }
-    let list = if kind == 0 {
-        &app().copies
-    } else {
-        &app().leaving
-    };
-    let element = list.call(Key::Get, &[Arg::integer(token)]);
+    let list = &app().operations;
+    let element = list.token_value(token);
     if !element.is_null() {
-        list.call(Key::Delete, &[Arg::integer(token)]);
+        list.delete_token(token);
         if kind == 0 {
             if app().math_copy.is_button(element) {
                 app().math_copy.reset_copy();
             } else {
-                element.set_text(lit!("Copy"));
+                element.set(Key::TextContent, element.get(Key::Value).arg());
             }
+            math_copy::MathCopy::finished(element);
         } else {
             element.call(Key::Remove, &[]);
         }
@@ -250,15 +255,18 @@ impl App {
         }
         let button = target.closest(lit!("[data-theme-choice]"));
         if !button.is_null() {
-            browser::set_theme(&button.call(
-                Key::GetAttribute,
-                &[Arg::literal(lit!("data-theme-choice"))],
-            ));
+            browser::set_theme(&button.get_attr(lit!("data-theme-choice")));
             return;
         }
-        let button = target.closest(lit!("button[data-copy]"));
+        let button = target.closest(lit!("button[data-copy],button[data-share]"));
         if !button.is_null() {
-            self.copy(button);
+            if !button.has_attr(lit!("aria-busy")) {
+                if button.has_attr(lit!("data-share")) {
+                    self.share(button);
+                } else {
+                    self.copy(button);
+                }
+            }
             return;
         }
         if self.math_copy.activate(event, target) {
@@ -277,16 +285,14 @@ impl App {
         if anchor.is_null() || anchor.has_attr(lit!("download")) {
             return;
         }
-        let target = anchor.call(Key::GetAttribute, &[Arg::literal(lit!("target"))]);
+        let target = anchor.get_attr(lit!("target"));
         if !target.is_null() && !target.equal_text(lit!("")) && !target.equal_text(lit!("_self")) {
             return;
         }
         let url = Js::construct(
             Key::Url,
             &[
-                anchor
-                    .call(Key::GetAttribute, &[Arg::literal(lit!("href"))])
-                    .arg(),
+                anchor.get_attr(lit!("href")).arg(),
                 location().get(Key::Href).arg(),
             ],
         );
@@ -356,11 +362,11 @@ impl App {
         self.navigation.set(token);
         let cached = self.pages.call(Key::Get, &[path.arg()]);
         let position = if push {
-            0.0
+            motion::scalar(0)
         } else {
             let value = self.positions.call(Key::Get, &[path.arg()]);
             if value.is_null() {
-                0.0
+                motion::scalar(0)
             } else {
                 value.numeric()
             }
@@ -384,24 +390,21 @@ impl App {
         }
         required(lit!("#main-content")).set_attr(lit!("aria-busy"), lit!("true"));
         required(lit!("#navigation-status")).set_text(lit!("Loading page…"));
-        self.requests.call(
+        self.operations.call(
             Key::Set,
             &[
                 Arg::integer(token),
                 Js::array(&[url.arg(), Arg::number(position), Arg::boolean(focus_search)]).arg(),
             ],
         );
-        match window().try_call(Key::Fetch, &[path.arg()]) {
-            Ok(promise) => promise.subscribe(PAGE_RESPONSE, token),
-            Err(_) => self.page_ready(token, Js::null()),
-        }
+        window().request(Key::Fetch, path.arg(), PAGE_RESPONSE, token);
     }
     fn page_ready(&self, token: u32, page: Js) {
-        let request = self.requests.call(Key::Get, &[Arg::integer(token)]);
+        let request = self.operations.token_value(token);
         if request.is_null() {
             return;
         }
-        self.requests.call(Key::Delete, &[Arg::integer(token)]);
+        self.operations.delete_token(token);
         let url = request.item(0);
         let path = url.get(Key::Pathname);
         let current = self.navigation.get() == token;
@@ -428,7 +431,7 @@ impl App {
             motion::replace(current, incoming, true, path);
             required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
             required(lit!("#navigation-status")).set_text(lit!("Unable to load this page."));
-            restore_position(url, 0.0);
+            restore_position(url, motion::scalar(0));
             self.toc.on_page();
         }
     }
@@ -439,7 +442,7 @@ impl App {
         motion::replace(
             required(lit!("#page-content")),
             page.item(0).duplicate(),
-            position == 0.0 && url.get(Key::Hash).equal_text(lit!("")),
+            position == motion::scalar(0) && url.get(Key::Hash).equal_text(lit!("")),
             path,
         );
         required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
@@ -455,9 +458,9 @@ impl App {
             .call_void(Key::Append, page.item(1).duplicate().arg());
         required(lit!("#navigation-status"))
             .set(Key::TextContent, document().get(Key::Title).arg());
-        restore_position(url, position);
         self.search.on_page();
         self.toc.on_page();
+        restore_position(url, position);
         if focus_search {
             focus_search_input();
         }
@@ -471,6 +474,8 @@ impl App {
                 return;
             }
             text
+        } else if button.get_attr(lit!("data-copy")).equal_text(lit!("link")) {
+            article_link()
         } else {
             button
                 .closest(lit!(".code-block"))
@@ -478,39 +483,75 @@ impl App {
                 .get(Key::TextContent)
         };
         required(lit!("#copy-status")).set_text(lit!(""));
-        self.copies
+        self.begin_operation(button, token);
+        window().get2(Key::Navigator, Key::Clipboard).request(
+            Key::WriteText,
+            text.arg(),
+            COPY,
+            token,
+        );
+    }
+    fn begin_operation(&self, button: Js, token: u32) {
+        self.operations
             .call(Key::Set, &[Arg::integer(token), button.arg()]);
-        match window()
-            .get2(Key::Navigator, Key::Clipboard)
-            .try_call(Key::WriteText, &[text.arg()])
-        {
-            Ok(promise) => promise.subscribe(COPY, token),
-            Err(_) => self.copied(token, false),
+        button.set_attr(lit!("aria-busy"), lit!("true"));
+        button.set_attr(lit!("aria-disabled"), lit!("true"));
+    }
+    fn feedback(&self, token: u32, message: browser::Literal) {
+        let button = self.operations.token_value(token);
+        if button.is_null() {
+            return;
         }
+        if !button.boolean(Key::IsConnected)
+            || !button.closest(lit!(".content-departing")).is_null()
+        {
+            timer(0, token);
+            return;
+        }
+        if self.math_copy.is_button(button) {
+            math_copy::MathCopy::finished(button);
+        }
+        button.set_text(message);
+        required(lit!("#copy-status")).set_text(message);
+        browser::delay(1800, 0, token);
     }
     fn copied(&self, token: u32, copied: bool) {
-        let button = self.copies.call(Key::Get, &[Arg::integer(token)]);
-        if !button.is_null() {
-            // Removed map entries fence off superseded promises and timers.
-            if self.math_copy.is_button(button) {
-                math_copy::MathCopy::finished(button);
-            }
-            let message = if copied {
+        self.feedback(
+            token,
+            if copied {
                 lit!("Copied")
             } else {
                 lit!("Copy failed")
-            };
-            button.set_text(message);
-            required(lit!("#copy-status")).set_text(message);
-            browser::delay(1800, 0, token);
+            },
+        );
+    }
+    fn share(&self, button: Js) {
+        let data = Js::object();
+        data.set(Key::Title, document().get(Key::Title).arg());
+        data.set(Key::ShareUrl, article_link().arg());
+        let token = self.token();
+        self.begin_operation(button, token);
+        window()
+            .get(Key::Navigator)
+            .request(Key::Share, data.arg(), SHARE_ERROR, token);
+    }
+    fn shared(&self, token: u32, failed: bool) {
+        if failed {
+            self.feedback(token, lit!("Share failed"));
+        } else {
+            timer(0, token);
         }
     }
     fn remove_after(&self, element: Js, promise: &Js) {
         let token = self.token();
-        self.leaving
+        self.operations
             .call(Key::Set, &[Arg::integer(token), element.arg()]);
         promise.subscribe(LEAVING, token);
     }
+}
+
+fn article_link() -> Js {
+    required(lit!("link[rel=canonical]")).get(Key::Href)
 }
 
 fn update_header(path: Js) {
@@ -568,6 +609,7 @@ fn scroll_to_hash(url: Js, smooth: bool) -> bool {
                 app().toc.scroll_to(&element);
             } else {
                 element.call(Key::ScrollIntoView, &[]);
+                app().toc.follow(&element);
             }
             return true;
         }

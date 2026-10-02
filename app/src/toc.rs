@@ -11,6 +11,7 @@ struct Scroll {
     started: f64,
     from: f64,
     to: f64,
+    heading: f64,
 }
 
 pub struct Toc {
@@ -21,6 +22,7 @@ pub struct Toc {
     pending: Cell<bool>,
     geometry_dirty: Cell<bool>,
     scroll: Cell<Option<Scroll>>,
+    reading: Cell<f64>,
 }
 
 impl Default for Toc {
@@ -33,6 +35,7 @@ impl Default for Toc {
             pending: Cell::new(false),
             geometry_dirty: Cell::new(false),
             scroll: Cell::new(None),
+            reading: Cell::new(motion::scalar(150)),
         }
     }
 }
@@ -40,22 +43,36 @@ impl Default for Toc {
 impl Toc {
     pub fn scroll_to(&self, element: &Js) {
         let from = window().number(Key::ScrollY);
-        let to = (from
+        let heading = from
             + element
                 .call(Key::GetBoundingClientRect, &[])
-                .number(Key::Top)
-            - 32.0)
-            .max(0.0)
-            .min(
-                document()
-                    .get(Key::DocumentElement)
-                    .number(Key::ScrollHeight)
-                    - window().number(Key::InnerHeight),
-            );
+                .number(Key::Top);
+        let to = (heading - motion::scalar(32)).max(motion::scalar(0)).min(
+            document()
+                .get(Key::DocumentElement)
+                .number(Key::ScrollHeight)
+                - window().number(Key::InnerHeight),
+        );
         self.scroll.set(Some(Scroll {
             started: now(),
             from,
             to,
+            heading: heading + motion::scalar(1),
+        }));
+        self.request();
+    }
+
+    pub fn follow(&self, element: &Js) {
+        let position = window().number(Key::ScrollY);
+        self.scroll.set(Some(Scroll {
+            started: now() - motion::scalar(180),
+            from: position,
+            to: position,
+            heading: position
+                + element
+                    .call(Key::GetBoundingClientRect, &[])
+                    .number(Key::Top)
+                + motion::scalar(1),
         }));
         self.request();
     }
@@ -65,12 +82,12 @@ impl Toc {
     }
 
     pub fn on_page(&self) {
-        let links = query(lit!("#page-content"))
-            .call(Key::QuerySelectorAll, &[Arg::literal(lit!(".toc a"))]);
+        let page = query(lit!("#page-content"));
+        let links = page.call(Key::QuerySelectorAll, &[Arg::literal(lit!(".toc a"))]);
         // The renderer emits matching desktop and mobile lists, in that order.
         let count = links.uint(Key::Length) / 2;
         // Only parsed Markdown headings have a generated heading anchor.
-        let headings = query(lit!("#page-content")).call(
+        let headings = page.call(
             Key::QuerySelectorAll,
             &[Arg::literal(lit!(".prose [id]:has(>.heading-anchor)"))],
         );
@@ -78,6 +95,9 @@ impl Toc {
         self.headings.set(self.headings.get().replacing(headings));
         self.count.set(count);
         self.active.set(u32::MAX);
+        self.cancel();
+        self.reading
+            .set(window().number(Key::ScrollY) + motion::scalar(150));
         self.request();
     }
 
@@ -88,6 +108,7 @@ impl Toc {
     }
 
     pub fn refresh(&self) {
+        self.cancel();
         self.geometry_dirty.set(true);
         self.request();
     }
@@ -98,43 +119,57 @@ impl Toc {
         if count == 0 {
             return;
         }
-        if let Some(scroll) = self.scroll.get() {
-            let progress = ((now() - scroll.started) / 180.0).min(1.0);
-            let remaining = 1.0 - progress;
+        let scrolling = self.scroll.get();
+        if let Some(scroll) = scrolling {
+            let progress = ((now() - scroll.started) / motion::scalar(180)).min(motion::scalar(1));
+            let remaining = motion::scalar(1) - progress;
             let position =
                 scroll.to + (scroll.from - scroll.to) * remaining * remaining * remaining;
             window().call(Key::ScrollTo, &[Arg::integer(0), Arg::number(position)]);
-            if progress < 1.0 {
+            if progress < motion::scalar(1) {
                 self.request();
-            } else {
-                self.cancel();
             }
         }
-        let bottom = window().number(Key::ScrollY) + window().number(Key::InnerHeight)
-            >= document()
-                .get(Key::DocumentElement)
-                .number(Key::ScrollHeight)
-                - 1.0;
+        let position = window().number(Key::ScrollY);
+        let height = window().number(Key::InnerHeight);
+        let document_height = document()
+            .get(Key::DocumentElement)
+            .number(Key::ScrollHeight);
+        // mdBook's 150/300px directional reading band. Keeping its position in
+        // document coordinates prevents a jump when the reader reverses.
+        let down = (height * 0.25).min(motion::scalar(150));
+        let reading = if let Some(scroll) = scrolling {
+            // Keep an explicit destination selected until the reader scrolls,
+            // even when the page end prevents aligning it with the top.
+            scroll.heading
+        } else if document_height > height
+            && position + height >= document_height - motion::scalar(1)
+        {
+            document_height
+        } else {
+            self.reading
+                .get()
+                .max(position + down)
+                .min(position + down * motion::scalar(2))
+        };
+        self.reading.set(reading);
+        let threshold = reading - position;
         let mut low = 0;
         let mut high = count;
-        if bottom {
-            low = count;
-        } else {
-            // Read geometry before changing attributes; large TOCs need only
-            // logarithmically many heading reads per animation frame.
-            while low < high {
-                let middle = low + (high - low) / 2;
-                let top = self
-                    .headings
-                    .get()
-                    .item(middle)
-                    .call(Key::GetBoundingClientRect, &[])
-                    .number(Key::Top);
-                if top <= 64.0 {
-                    low = middle + 1;
-                } else {
-                    high = middle;
-                }
+        // Read geometry before changing attributes; large TOCs need only
+        // logarithmically many heading reads per animation frame.
+        while low < high {
+            let middle = low + (high - low) / 2;
+            let top = self
+                .headings
+                .get()
+                .item(middle)
+                .call(Key::GetBoundingClientRect, &[])
+                .number(Key::Top);
+            if top <= threshold {
+                low = middle + 1;
+            } else {
+                high = middle;
             }
         }
         let active = low.saturating_sub(1);
@@ -146,8 +181,8 @@ impl Toc {
         let link = self.links.get().item(active);
         // Offsets use the sidebar's content coordinates, including when it
         // scrolls. Read before writing, only when selection or layout changes.
-        let top = link.number(Key::OffsetTop) + 4.0;
-        let height = (link.number(Key::OffsetHeight) - 8.0).max(0.0);
+        let top = link.number(Key::OffsetTop) + motion::scalar(4);
+        let height = (link.number(Key::OffsetHeight) - motion::scalar(8)).max(motion::scalar(0));
         let sidebar = link.closest(lit!(".toc"));
         let style = sidebar.get(Key::Style);
         sidebar.optional_attr(
