@@ -126,6 +126,26 @@ small, time, summary {
   flex-direction: column;
 }
 
+.site-shell:has(.article-header), .content-departing:has(.article-header) {
+  --body-size: 0.875rem;
+  --title-size: 1.375rem;
+  font-size: var(--body-size);
+}
+
+.site-shell:has(.article-header) .site-header {
+  padding-top: 48px;
+}
+
+.site-shell:has(.article-header) .navigation {
+  column-gap: 24px;
+  padding: 20px 0 12px;
+  font-size: var(--body-size);
+}
+
+.site-shell:has(.article-header) .page {
+  padding: 48px 0 64px;
+}
+
 .site-header {
   padding-top: 64px;
 }
@@ -444,13 +464,13 @@ small, time, summary {
 
 .article-header {
   max-width: min(760px, calc(100% - 264px));
-  padding-bottom: 24px;
-  margin-bottom: 32px;
+  padding-bottom: 20px;
+  margin-bottom: 24px;
   border-bottom: 1px solid var(--line);
 }
 
 .article-header h1 {
-  margin: 16px 0;
+  margin: 12px 0;
 }
 
 .article-header .post-tags {
@@ -475,9 +495,9 @@ small, time, summary {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px 24px;
-  margin-top: 48px;
-  padding-top: 24px;
+  gap: 12px 20px;
+  margin-top: 32px;
+  padding-top: 16px;
   border-top: 1px solid var(--line);
 }
 
@@ -490,7 +510,7 @@ small, time, summary {
 .article-actions {
   display: none;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .js .article-actions {
@@ -498,11 +518,12 @@ small, time, summary {
 }
 
 .article-actions button {
-  min-width: 112px;
+  min-height: 32px;
+  min-width: 96px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 
@@ -521,7 +542,7 @@ small, time, summary {
   top: 32px;
   max-height: calc(100dvh - 64px);
   overflow-y: auto;
-  padding-left: 24px;
+  padding-left: 20px;
   border-left: 1px solid var(--line);
 }
 
@@ -532,11 +553,11 @@ small, time, summary {
 }
 
 .toc ul {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .toc li + li {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .toc a {
@@ -544,7 +565,7 @@ small, time, summary {
   display: block;
   text-decoration: none;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 0.8125rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -572,7 +593,7 @@ small, time, summary {
 }
 
 .toc .nested-heading {
-  padding-left: 16px;
+  padding-left: 12px;
 }
 
 .mobile-toc {
@@ -580,7 +601,7 @@ small, time, summary {
 }
 
 .prose {
-  font-size: 1.0625rem;
+  font-size: 1rem;
   line-height: 1.8;
   overflow-wrap: break-word;
 }
@@ -597,26 +618,26 @@ small, time, summary {
 }
 
 .prose > * + * {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  margin: 48px 0 20px;
+  margin: 40px 0 16px;
   line-height: 1.35;
   scroll-margin-top: 32px;
   font-weight: 600;
 }
 
 .prose h1, .prose h2 {
-  font-size: 28px;
+  font-size: 1.375rem;
 }
 
 .prose h3 {
-  font-size: 24px;
+  font-size: 1.25rem;
 }
 
 .prose h4, .prose h5, .prose h6 {
-  font-size: 20px;
+  font-size: 1.125rem;
 }
 
 .prose > :first-child {
@@ -624,14 +645,14 @@ small, time, summary {
 }
 
 .heading-anchor {
-  margin-left: 12px;
+  margin-left: 8px;
   color: var(--muted);
   text-decoration: none;
   font-weight: 400;
 }
 
 .prose ul, .prose ol {
-  padding-left: 26px;
+  padding-left: 24px;
 }
 
 .prose li + li {
@@ -641,7 +662,7 @@ small, time, summary {
 .prose blockquote {
   margin-left: 0;
   margin-right: 0;
-  padding-left: 24px;
+  padding-left: 20px;
   border-left: 2px solid var(--text);
   color: var(--muted);
 }
@@ -654,7 +675,7 @@ small, time, summary {
 }
 
 .prose th, .prose td {
-  padding: 12px 20px 12px 0;
+  padding: 10px 16px 10px 0;
   text-align: start;
   border-bottom: 1px solid var(--line);
 }
@@ -668,13 +689,17 @@ small, time, summary {
 .prose hr {
   border: 0;
   border-top: 1px solid var(--line);
-  margin: 40px 0;
+  margin: 32px 0;
 }
 
 code, pre, kbd {
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: 1rem;
   font-variant-ligatures: none;
+}
+
+.prose code, .prose pre, .prose kbd {
+  font-size: 0.875rem;
 }
 
 .prose :not(pre) > code {
@@ -694,23 +719,23 @@ code, pre, kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  min-height: 32px;
+  padding: 0 16px;
+  min-height: 28px;
   border-bottom: 1px solid var(--line);
-  font-size: 13px;
+  font-size: 0.75rem;
   line-height: 1.5;
   color: var(--muted);
 }
 
 .code-toolbar button {
-  min-height: 32px;
-  padding-left: 16px;
+  min-height: 28px;
+  padding-left: 12px;
 }
 
 .prose pre {
   overflow-x: auto;
   margin: 0;
-  padding: 20px;
+  padding: 16px;
   line-height: 1.7;
   tab-size: 4;
   direction: ltr;
@@ -766,15 +791,15 @@ code, pre, kbd {
 .post-pagination {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-  margin-top: 64px;
-  padding-top: 24px;
+  gap: 20px;
+  margin-top: 48px;
+  padding-top: 20px;
   border-top: 1px solid var(--line);
 }
 
 .post-pagination a {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   text-decoration: none;
 }
 
@@ -929,8 +954,8 @@ mark {
     border: 0;
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    padding: 16px 0;
-    margin-bottom: 32px;
+    padding: 12px 0;
+    margin-bottom: 24px;
   }
 
   .mobile-toc summary {
@@ -986,6 +1011,19 @@ mark {
     padding-top: 40px;
   }
 
+  .site-shell:has(.article-header) .site-header {
+    padding-top: 32px;
+  }
+
+  .site-shell:has(.article-header) .navigation {
+    column-gap: 12px;
+    padding-top: 16px;
+  }
+
+  .site-shell:has(.article-header) .page {
+    padding: 32px 0 48px;
+  }
+
   .navigation {
     column-gap: 12px;
     padding-top: 22px;
@@ -1018,11 +1056,11 @@ mark {
   }
 
   .code-toolbar {
-    padding: 0 14px;
+    padding: 0 12px;
   }
 
   .prose pre {
-    padding: 16px 14px;
+    padding: 14px 12px;
   }
 }
 
@@ -1030,6 +1068,10 @@ mark {
   .navigation {
     column-gap: 6px;
     font-size: 0.9375rem;
+  }
+
+  .site-shell:has(.article-header) .navigation {
+    column-gap: 6px;
   }
 }
 
@@ -1042,7 +1084,7 @@ mark {
     min-height: 44px;
   }
 
-  .code-toolbar, .code-toolbar button {
+  .code-toolbar, .code-toolbar button, .article-actions button {
     min-height: 44px;
   }
 }
