@@ -15,7 +15,7 @@ pub fn frame(catalog: &Catalog, path: &str, body: &str) -> String {
         ("/about/", "About"),
         ("/search/", "Search"),
     ] {
-        let active = if href != "/" && path.starts_with(href) {
+        let active = if path == href || (href != "/" && path.starts_with(href)) {
             " aria-current=\"page\""
         } else {
             ""

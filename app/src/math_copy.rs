@@ -34,7 +34,7 @@ impl MathCopy {
 
     fn origin(&self) -> Js {
         let source = self.source.get();
-        let anchor = source.closest(lit!("a, button"));
+        let anchor = source.closest(lit!("a,button"));
         if anchor.is_null() { source } else { anchor }
     }
 
@@ -106,7 +106,7 @@ impl MathCopy {
         if target.is_null() || self.panel.get().call_boolean(Key::Contains, target.arg()) {
             return;
         }
-        let anchor = target.closest(lit!("a, button"));
+        let anchor = target.closest(lit!("a,button"));
         if !anchor.is_null() {
             let source = anchor.query(lit!(".math"));
             if !source.is_null() {

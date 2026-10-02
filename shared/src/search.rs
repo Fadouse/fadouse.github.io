@@ -336,15 +336,10 @@ fn find_bytes(bytes: &[u8], needle: &[u8]) -> usize {
     let Some(&first) = needle.first() else {
         return usize::MAX;
     };
-    let Some(last) = bytes.len().checked_sub(needle.len()) else {
-        return usize::MAX;
-    };
-    for offset in 0..=last {
-        if bytes[offset] == first && &bytes[offset..offset + needle.len()] == needle {
-            return offset;
-        }
-    }
-    usize::MAX
+    bytes
+        .windows(needle.len())
+        .position(|window| window[0] == first && window == needle)
+        .unwrap_or(usize::MAX)
 }
 
 // Unicode White_Space, matching str::split_whitespace exactly. Scan UTF-8

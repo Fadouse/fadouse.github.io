@@ -12,9 +12,12 @@
   --body-size: 1rem;
   --title-size: 1.5rem;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --feedback-duration: 90ms;
+  --enter-duration: 130ms;
+  --exit-duration: 100ms;
   --layout-duration: 180ms;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 16px;
+  font-size: 100%;
   color: var(--text);
   background: var(--background);
 }
@@ -72,6 +75,7 @@ button {
   border: 0;
   padding: 0;
   min-height: 44px;
+  min-width: 44px;
 }
 
 a {
@@ -127,8 +131,10 @@ small, time, summary {
   width: fit-content;
   font-size: var(--title-size);
   font-weight: 600;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  letter-spacing: -0.065em;
+  line-height: 1;
+  margin-left: -0.055em;
+  transform-origin: left top;
   text-decoration: none;
 }
 
@@ -137,12 +143,17 @@ small, time, summary {
 }
 
 .home-header .brand {
-  font-size: clamp(48px, 10vw, 128px);
-  font-weight: 600;
-  letter-spacing: -0.065em;
-  line-height: 1;
-  margin-left: -0.055em;
+  font-size: clamp(3rem, 8vw, 7rem);
   cursor: default;
+}
+
+.home-header {
+  padding-top: 56px;
+}
+
+.home-header .navigation {
+  padding-top: 24px;
+  padding-bottom: 16px;
 }
 
 .navigation {
@@ -158,6 +169,7 @@ small, time, summary {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  min-width: 44px;
   color: var(--muted);
   text-decoration: none;
 }
@@ -205,6 +217,28 @@ small, time, summary {
   flex: 1;
   min-width: 0;
   padding: 64px 0 96px;
+}
+
+.home-header + .page {
+  flex: none;
+  padding: 48px 0 64px;
+}
+
+[data-page="/"] .section-heading h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+[data-page="/"] .post-row {
+  grid-template-columns: 8rem minmax(0, 1fr);
+  align-items: first baseline;
+  padding-block: 24px;
+}
+
+[data-page="/"] .post-date {
+  padding-top: 0;
+  font-size: 0.875rem;
 }
 
 .page:focus {
@@ -527,7 +561,7 @@ small, time, summary {
 
 code, pre, kbd {
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: 16px;
+  font-size: 1rem;
   font-variant-ligatures: none;
 }
 
@@ -825,12 +859,20 @@ mark {
   }
 
   .navigation {
-    column-gap: 22px;
+    column-gap: 12px;
     padding-top: 22px;
   }
 
-  .navigation .search-link {
-    margin-left: 0;
+  .home-header {
+    padding-top: 32px;
+  }
+
+  .home-header .navigation {
+    padding-top: 20px;
+  }
+
+  .home-header + .page {
+    padding: 32px 0 48px;
   }
 
   .shortcut {
@@ -847,6 +889,11 @@ mark {
     padding: 24px 0 28px;
   }
 
+  [data-page="/"] .post-row {
+    grid-template-columns: 1fr;
+    padding-bottom: 28px;
+  }
+
   .site-footer {
     align-items: flex-start;
   }
@@ -857,6 +904,13 @@ mark {
 
   .prose pre {
     padding: 16px 14px;
+  }
+}
+
+@media (max-width: 359px) {
+  .navigation {
+    column-gap: 6px;
+    font-size: 0.9375rem;
   }
 }
 
@@ -871,23 +925,31 @@ mark {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .toc a, .prose a:not(.heading-anchor) {
-    transition: color 90ms var(--ease-out), text-decoration-color 90ms var(--ease-out);
+  .toc a, .prose a:not(.heading-anchor), .navigation a,
+  .site-footer a, button {
+    transition: color var(--feedback-duration) var(--ease-out),
+      text-decoration-color var(--feedback-duration) var(--ease-out),
+      background-color var(--feedback-duration) var(--ease-out);
+  }
+
+  .navigation a::after {
+    transition: transform var(--feedback-duration) var(--ease-out);
   }
 
   .desktop-toc[data-toc-motion]::before {
-    transition: transform 180ms var(--ease-out), height 180ms var(--ease-out);
+    transition: transform var(--layout-duration) var(--ease-out),
+      height var(--layout-duration) var(--ease-out);
   }
 
   .post-row, .post-title a {
-    transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+    transition: background-color var(--enter-duration) var(--ease-out),
+      color var(--enter-duration) var(--ease-out);
   }
+}
 
-  .brand {
-    transition:
-      font-size var(--layout-duration) var(--ease-out),
-      line-height var(--layout-duration) var(--ease-out),
-      letter-spacing var(--layout-duration) var(--ease-out),
-      margin-left var(--layout-duration) var(--ease-out);
-  }
+button:active, .navigation a:active, .site-footer a:active,
+.post-title a:active {
+  color: var(--text);
+  background-color: var(--surface);
+  transition-duration: 0s;
 }

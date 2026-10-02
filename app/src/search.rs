@@ -142,7 +142,7 @@ impl Search {
             (incoming, transition)
         };
         if transition {
-            motion::replace(&container, &incoming, true);
+            motion::replace(container, incoming, true, Js::null());
         } else {
             // Templates have one or two root nodes. Repeating the only node
             // moves it once and preserves any opacity animation on container.

@@ -333,6 +333,14 @@ impl Js {
     pub fn remove_attr(self, name: Literal) {
         self.call(Key::RemoveAttribute, &[Arg::literal(name)]);
     }
+    #[inline(never)]
+    pub fn optional_attr(self, name: Literal, value: Literal, enabled: bool) {
+        if enabled {
+            self.set_attr(name, value);
+        } else {
+            self.remove_attr(name);
+        }
+    }
     #[inline(always)]
     pub fn has_attr(self, name: Literal) -> bool {
         self.call_boolean(Key::HasAttribute, Arg::literal(name))

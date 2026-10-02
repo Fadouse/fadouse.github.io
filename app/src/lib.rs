@@ -51,7 +51,7 @@ fn app() -> &'static App {
     unsafe { (*APP.0.get()).assume_init_ref() }
 }
 
-fn page_read(doc: &Js) -> Js {
+fn page_read(doc: Js) -> Js {
     let content = doc.call(Key::GetElementById, &[Arg::literal(lit!("page-content"))]);
     if content.is_null() {
         return Js::null();
@@ -93,7 +93,7 @@ pub extern "C" fn start() {
         .call(Key::Add, &[Arg::literal(lit!("js"))]);
     app().pages.call(
         Key::Set,
-        &[app().path.get().arg(), page_read(&document()).arg()],
+        &[app().path.get().arg(), page_read(document()).arg()],
     );
     window()
         .get(Key::History)
@@ -160,7 +160,7 @@ pub extern "C" fn resolved(kind: u32, token: u32, value: u32) {
                     Key::ParseFromString,
                     &[value.arg(), Arg::literal(lit!("text/html"))],
                 )
-                .map(|doc| page_read(&doc))
+                .map(page_read)
                 .unwrap_or(Js::null());
             app().page_ready(token, page);
         }
@@ -217,6 +217,7 @@ fn target(event: &Js) -> Js {
 }
 
 impl App {
+    #[inline(never)]
     fn token(&self) -> u32 {
         let token = self.next.get() + 1;
         self.next.set(token);
@@ -293,7 +294,7 @@ impl App {
             return;
         }
         if path.same(location().get(Key::Pathname)) && !url.get(Key::Hash).equal_text(lit!("")) {
-            if !anchor.closest(lit!(".toc")).is_null() && scroll_to_hash(&url, !motion::reduced()) {
+            if !anchor.closest(lit!(".toc")).is_null() && scroll_to_hash(url, !motion::reduced()) {
                 event.call(Key::PreventDefault, &[]);
                 if !url.get(Key::Href).same(location().get(Key::Href)) {
                     push_url(&url);
@@ -339,7 +340,7 @@ impl App {
         self.math_copy.detach();
         self.toc.cancel();
         self.record_scroll();
-        let contents = query(lit!("#page-content .mobile-toc"));
+        let contents = query(lit!("main .mobile-toc"));
         if !contents.is_null() {
             self.pages
                 .call(Key::Get, &[self.path.get().arg()])
@@ -370,12 +371,12 @@ impl App {
             if focus_search {
                 focus_search_input();
             } else if !push {
-                restore_position(&url, position);
+                restore_position(url, position);
             }
             return;
         }
         if !cached.is_null() {
-            self.commit(&url, &cached, position, focus_search);
+            self.commit(url, cached, position, focus_search);
             return;
         }
         required(lit!("#main-content")).set_attr(lit!("aria-busy"), lit!("true"));
@@ -409,8 +410,8 @@ impl App {
             self.pages.call(Key::Set, &[path.arg(), page.arg()]);
             if current {
                 self.commit(
-                    &url,
-                    &page,
+                    url,
+                    page,
                     request.item(1).numeric(),
                     request.item(2).truthy(),
                 );
@@ -418,26 +419,25 @@ impl App {
         } else if current {
             self.math_copy.detach();
             self.set_path(path);
-            update_header(&path);
             let current = required(lit!("#page-content"));
             let incoming = current.call(Key::CloneNode, &[]);
             incoming.call_void(Key::Append, browser::template(lit!("#page-error")).arg());
-            motion::replace(&current, &incoming, true);
+            motion::replace(current, incoming, true, path);
             required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
             required(lit!("#navigation-status")).set_text(lit!("Unable to load this page."));
-            restore_position(&url, 0.0);
+            restore_position(url, 0.0);
             self.toc.on_page();
         }
     }
-    fn commit(&self, url: &Js, page: &Js, position: f64, focus_search: bool) {
+    fn commit(&self, url: Js, page: Js, position: f64, focus_search: bool) {
         self.math_copy.detach();
         let path = url.get(Key::Pathname);
         self.set_path(path);
-        update_header(&path);
         motion::replace(
-            &required(lit!("#page-content")),
-            &page.item(0).duplicate(),
+            required(lit!("#page-content")),
+            page.item(0).duplicate(),
             position == 0.0 && url.get(Key::Hash).equal_text(lit!("")),
+            path,
         );
         required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
         let nodes = document().call(
@@ -510,7 +510,7 @@ impl App {
     }
 }
 
-fn update_header(path: &Js) {
+fn update_header(path: Js) {
     let home = path.equal_text(lit!("/"));
     required(lit!(".site-header")).set(
         Key::ClassName,
@@ -526,22 +526,18 @@ fn update_header(path: &Js) {
         if home { lit!("heading") } else { lit!("none") },
     );
     let brand = required(lit!(".brand"));
-    if home {
-        heading.set_attr(lit!("aria-level"), lit!("1"));
-        brand.set_attr(lit!("aria-current"), lit!("page"));
-    } else {
-        heading.remove_attr(lit!("aria-level"));
-        brand.remove_attr(lit!("aria-current"));
-    }
+    heading.optional_attr(lit!("aria-level"), lit!("1"), home);
+    brand.optional_attr(lit!("aria-current"), lit!("page"), home);
     let links = document().call(Key::QuerySelectorAll, &[Arg::literal(lit!("[data-nav]"))]);
     for i in 0..links.uint(Key::Length) {
         let link = links.item(i);
-        let href = link.call(Key::GetAttribute, &[Arg::literal(lit!("href"))]);
-        if !href.equal_text(lit!("/")) && path.call_boolean(Key::StartsWith, href.arg()) {
-            link.set_attr(lit!("aria-current"), lit!("page"));
-        } else {
-            link.remove_attr(lit!("aria-current"));
-        }
+        let href = link.get(Key::Pathname);
+        link.optional_attr(
+            lit!("aria-current"),
+            lit!("page"),
+            href.same(path)
+                || (!href.equal_text(lit!("/")) && path.call_boolean(Key::StartsWith, href.arg())),
+        );
     }
 }
 fn push_url(url: &Js) {
@@ -554,7 +550,7 @@ fn push_url(url: &Js) {
         ],
     );
 }
-fn scroll_to_hash(url: &Js, smooth: bool) -> bool {
+fn scroll_to_hash(url: Js, smooth: bool) -> bool {
     let mut hash = url.get(Key::Hash);
     let has_hash = !hash.equal_text(lit!(""));
     while hash.call_boolean(Key::StartsWith, Arg::literal(lit!("#"))) {
@@ -575,7 +571,7 @@ fn scroll_to_hash(url: &Js, smooth: bool) -> bool {
     }
     false
 }
-fn restore_position(url: &Js, position: f64) {
+fn restore_position(url: Js, position: f64) {
     if scroll_to_hash(url, false) {
         return;
     }

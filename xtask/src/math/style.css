@@ -17,7 +17,7 @@
 .math-copy[aria-busy] { cursor: progress; }
 @supports not (position-anchor: --math-copy) { .math-popover { left: auto; right: 0; top: auto; bottom: 0; } }
 @media (prefers-reduced-motion: no-preference) {
-  .math-popover { transform: scale(.98); transition: opacity 100ms var(--ease-out), transform 100ms var(--ease-out), visibility 0s linear 100ms, display 100ms allow-discrete, overlay 100ms allow-discrete; }
-  .math-popover:not([inert]) { transform: none; transition-duration: 130ms, 130ms, 0s, 130ms, 130ms; transition-delay: 0s; }
+  .math-popover { transform: scale(.98); transition: opacity var(--exit-duration) var(--ease-out), transform var(--exit-duration) var(--ease-out), visibility 0s linear var(--exit-duration), display var(--exit-duration) allow-discrete, overlay var(--exit-duration) allow-discrete; }
+  .math-popover:not([inert]) { transform: none; transition-duration: var(--enter-duration), var(--enter-duration), 0s, var(--enter-duration), var(--enter-duration); transition-delay: 0s; }
   @starting-style { .math-popover:not([inert]) { opacity: 0; transform: scale(.98); } }
 }
