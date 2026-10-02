@@ -261,13 +261,13 @@ small, time, summary {
   display: grid;
   grid-template-columns: 128px minmax(0, 1fr);
   gap: 32px;
-  align-items: first baseline;
+  align-items: start;
 }
 
 .profile-label {
   font-size: var(--body-size);
   font-weight: 500;
-  line-height: 1.5;
+  line-height: inherit;
   letter-spacing: 0;
   color: var(--muted);
 }
@@ -286,8 +286,8 @@ small, time, summary {
   white-space: pre-line;
 }
 
-.profile-intro + .profile-copy {
-  margin-top: 24px;
+.profile-intro + .profile-copy, .focus-list p {
+  margin-top: 8px;
 }
 
 .focus-list, .profile-links {
@@ -306,14 +306,19 @@ small, time, summary {
 }
 
 .focus-list p {
-  margin-top: 8px;
   color: var(--muted);
 }
 
 .profile-links {
+  /* Keep the 44px hit area outside the text's layout box. */
+  --hit-padding: max(0px, calc((44px - 1lh) / 2));
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 32px;
+  gap: max(8px, calc(var(--hit-padding) * 2)) 32px;
+}
+
+.profile-links li {
+  display: flex;
 }
 
 .profile-links a {
@@ -321,6 +326,8 @@ small, time, summary {
   align-items: center;
   gap: 6px;
   min-height: 44px;
+  padding-block: var(--hit-padding);
+  margin-block: calc(var(--hit-padding) * -1);
   text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent);
   overflow-wrap: anywhere;
 }
