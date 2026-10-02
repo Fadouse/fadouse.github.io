@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::{collections::BTreeMap, env, fs, path::PathBuf};
 use syn::visit::Visit;
 fn main() {

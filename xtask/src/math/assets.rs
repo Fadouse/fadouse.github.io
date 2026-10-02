@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use anyhow::Result;
 use sha2::{Digest, Sha256};
 use std::{

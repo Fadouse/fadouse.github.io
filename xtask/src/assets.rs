@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use anyhow::{Result, ensure};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use oxc::{

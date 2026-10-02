@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 pub mod assets;
 // Reference data: KaTeX v0.18.9, 71a7bc02435353b4ed2420bb7b904cae6a0231bc.
 // Fonts, metrics, syntax tables and fixtures retain the adjacent MIT LICENSE.

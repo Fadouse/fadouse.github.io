@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 // Browser API bindings. Application state and behavior live in WASM.
 export default async function initialize(url, integrity) {
   const names = __BROWSER_KEYS__;

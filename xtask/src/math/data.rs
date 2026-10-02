@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use super::ast::{Class, Mode, Node};
 use serde::Deserialize;
 use std::{collections::BTreeMap, sync::OnceLock};

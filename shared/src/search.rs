@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use alloc::{string::String, vec::Vec};
 use core::ops::Range;
 

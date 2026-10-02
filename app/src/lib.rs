@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 #![cfg_attr(target_arch = "wasm32", no_std)]
 extern crate alloc;
 

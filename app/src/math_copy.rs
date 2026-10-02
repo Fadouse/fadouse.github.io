@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use crate::{
     app,
     browser::{self, Arg, Js, Key, document, required},

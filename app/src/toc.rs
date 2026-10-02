@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use core::cell::Cell;
 
 use crate::browser::{self, Arg, Js, Key, document, query, window};

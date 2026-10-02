@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::fmt::Write;
 
 use shared::{Catalog, Heading, PostSummary, tag_path};

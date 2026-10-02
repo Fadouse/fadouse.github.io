@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
@@ -247,6 +250,7 @@ pub fn finish(
         ),
     )?;
     copy_media(&root.join("content/media"), &dist.join("media"))?;
+    fs::copy(root.join("LICENSE"), dist.join("LICENSE.txt"))?;
 
     println!(
         "Built {} articles and {} page entries.",

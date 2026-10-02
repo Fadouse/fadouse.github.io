@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Fadouse
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::{borrow::Cow, cell::RefCell, sync::OnceLock};
 
 use anyhow::{Context, Result, anyhow};
