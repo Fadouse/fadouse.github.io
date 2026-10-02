@@ -278,10 +278,7 @@ small, time, summary {
 }
 
 .profile-intro {
-  font-size: 2rem;
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.025em;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -914,10 +911,6 @@ mark {
   .profile-section {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-  }
-
-  .profile-intro {
-    font-size: 1.5rem;
   }
 
   .home-header + .page {
