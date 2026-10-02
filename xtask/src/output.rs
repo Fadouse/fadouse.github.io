@@ -208,10 +208,7 @@ pub fn finish(
     feed.push_str("</channel></rss>");
     fs::write(dist.join("feed.xml"), feed)?;
     let mut sitemap = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">".to_owned();
-    for route in routes.iter().filter(|route| {
-        route.as_str() != "/search/"
-            && !(route.as_str() == "/about/" && catalog.site.about.trim().is_empty())
-    }) {
+    for route in routes.iter().filter(|route| route.as_str() != "/search/") {
         let modified = catalog
             .posts
             .iter()

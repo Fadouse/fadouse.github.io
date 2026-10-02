@@ -1,6 +1,7 @@
 #![cfg_attr(target_arch = "wasm32", no_std)]
 extern crate alloc;
 
+#[macro_use]
 mod browser;
 mod math_copy;
 mod motion;
@@ -51,13 +52,16 @@ fn app() -> &'static App {
 }
 
 fn page_read(doc: &Js) -> Js {
-    let content = doc.call(Key::GetElementById, &[Arg::literal("page-content")]);
+    let content = doc.call(Key::GetElementById, &[Arg::literal(lit!("page-content"))]);
     if content.is_null() {
         return Js::null();
     }
-    let nodes = doc.call(Key::QuerySelectorAll, &[Arg::literal("[data-page-meta]")]);
+    let nodes = doc.call(
+        Key::QuerySelectorAll,
+        &[Arg::literal(lit!("[data-page-meta]"))],
+    );
     let metadata = doc.call(Key::CreateDocumentFragment, &[]);
-    for i in 0..nodes.number(Key::Length) as u32 {
+    for i in 0..nodes.uint(Key::Length) {
         metadata.call_void(Key::Append, nodes.item(i).duplicate().arg());
     }
     Js::array(&[content.duplicate().arg(), metadata.arg()])
@@ -65,7 +69,8 @@ fn page_read(doc: &Js) -> Js {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn start() {
-    browser::mark("wasm-start");
+    browser::initialize_literals();
+    browser::mark(lit!("wasm-start"));
     let map = || Js::construct(Key::Map, &[]).retain();
     unsafe {
         (*APP.0.get()).write(App {
@@ -79,22 +84,21 @@ pub extern "C" fn start() {
             leaving: map(),
             search: search::Search::default(),
             toc: toc::Toc::default(),
-            math_copy: math_copy::MathCopy::default(),
+            math_copy: math_copy::MathCopy::new(),
         })
     };
     browser::set_theme(&browser::saved_theme());
     document()
-        .get(Key::DocumentElement)
-        .get(Key::ClassList)
-        .call(Key::Add, &[Arg::literal("js")]);
+        .get2(Key::DocumentElement, Key::ClassList)
+        .call(Key::Add, &[Arg::literal(lit!("js"))]);
     app().pages.call(
         Key::Set,
         &[app().path.get().arg(), page_read(&document()).arg()],
     );
     window()
         .get(Key::History)
-        .set(Key::ScrollRestoration, Arg::literal("manual"));
-    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0\x0apointerover\0\x0bpointerout\0\x0cfocusin\0\x0dfocusout\0");
+        .set(Key::ScrollRestoration, Arg::literal(lit!("manual")));
+    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0\x0cfocusin\0");
     window().listen(b"\x02popstate\0\x83scroll\0\x08resize\0\x09wheel\0\x09pointerdown\0");
     let viewport = window().get(Key::VisualViewport);
     if !viewport.is_null() {
@@ -102,8 +106,7 @@ pub extern "C" fn start() {
     }
     app().search.on_page();
     app().toc.on_page();
-    app().math_copy.on_page();
-    browser::mark("app-mounted");
+    browser::mark(lit!("app-mounted"));
 }
 
 #[unsafe(no_mangle)]
@@ -114,7 +117,7 @@ pub extern "C" fn dispatch(kind: u32, value: u32) {
         1 => app().keydown(&event),
         2 => app().navigate(browser::url(), false, false),
         3 => {
-            app().math_copy.close();
+            app().math_copy.scroll(&event);
             app().toc.request();
         }
         8 => {
@@ -125,8 +128,7 @@ pub extern "C" fn dispatch(kind: u32, value: u32) {
             app().math_copy.pointer_down(&event);
             app().toc.cancel();
         }
-        10 | 12 => app().math_copy.enter(&event, kind == 12),
-        11 | 13 => app().math_copy.exit(&event, kind == 13),
+        12 => app().math_copy.focus(&event),
         14 => app().math_copy.close(),
         _ => app().search.event(kind, &event),
     }
@@ -156,7 +158,7 @@ pub extern "C" fn resolved(kind: u32, token: u32, value: u32) {
             let page = parser
                 .try_call(
                     Key::ParseFromString,
-                    &[value.arg(), Arg::literal("text/html")],
+                    &[value.arg(), Arg::literal(lit!("text/html"))],
                 )
                 .map(|doc| page_read(&doc))
                 .unwrap_or(Js::null());
@@ -186,10 +188,6 @@ pub extern "C" fn timer(kind: u32, token: u32) {
         app().toc.update();
         return;
     }
-    if kind == 3 {
-        app().math_copy.timeout(token);
-        return;
-    }
     let list = if kind == 0 {
         &app().copies
     } else {
@@ -199,13 +197,10 @@ pub extern "C" fn timer(kind: u32, token: u32) {
     if !element.is_null() {
         list.call(Key::Delete, &[Arg::integer(token)]);
         if kind == 0 {
-            if element
-                .call(Key::GetAttribute, &[Arg::literal("data-copy")])
-                .equal_text("math")
-            {
-                app().math_copy.reset_copy(token);
+            if app().math_copy.is_button(element) {
+                app().math_copy.reset_copy();
             } else {
-                element.set_text("Copy");
+                element.set_text(lit!("Copy"));
             }
         } else {
             element.call(Key::Remove, &[]);
@@ -237,10 +232,11 @@ impl App {
         );
     }
     fn click(&self, event: &Js) {
-        if event.number(Key::Button) != 0.0
-            || [Key::CtrlKey, Key::MetaKey, Key::AltKey, Key::ShiftKey]
-                .iter()
-                .any(|key| event.boolean(*key))
+        if event.uint(Key::Button) != 0
+            || event.boolean(Key::CtrlKey)
+            || event.boolean(Key::MetaKey)
+            || event.boolean(Key::AltKey)
+            || event.boolean(Key::ShiftKey)
         {
             return;
         }
@@ -248,23 +244,24 @@ impl App {
         if target.is_null() {
             return;
         }
-        let button = target.closest("[data-theme-choice]");
+        let button = target.closest(lit!("[data-theme-choice]"));
         if !button.is_null() {
-            browser::set_theme(
-                &button.call(Key::GetAttribute, &[Arg::literal("data-theme-choice")]),
-            );
+            browser::set_theme(&button.call(
+                Key::GetAttribute,
+                &[Arg::literal(lit!("data-theme-choice"))],
+            ));
             return;
         }
-        let button = target.closest("button[data-copy]");
+        let button = target.closest(lit!("button[data-copy]"));
         if !button.is_null() {
             self.copy(button);
             return;
         }
-        if self.math_copy.touch(event, target) {
+        if self.math_copy.activate(event, target) {
             return;
         }
-        if !target.closest("[data-retry]").is_null() {
-            if !query("#search-input").is_null() {
+        if !target.closest(lit!("[data-retry]")).is_null() {
+            if !query(lit!("#search-input")).is_null() {
                 self.search.on_page();
                 focus_search_input();
             } else {
@@ -272,31 +269,31 @@ impl App {
             }
             return;
         }
-        let anchor = target.closest("a[href]");
-        if anchor.is_null() || anchor.has_attr("download") {
+        let anchor = target.closest(lit!("a[href]"));
+        if anchor.is_null() || anchor.has_attr(lit!("download")) {
             return;
         }
-        let target = anchor.call(Key::GetAttribute, &[Arg::literal("target")]);
-        if !target.is_null() && !target.equal_text("") && !target.equal_text("_self") {
+        let target = anchor.call(Key::GetAttribute, &[Arg::literal(lit!("target"))]);
+        if !target.is_null() && !target.equal_text(lit!("")) && !target.equal_text(lit!("_self")) {
             return;
         }
         let url = Js::construct(
             Key::Url,
             &[
                 anchor
-                    .call(Key::GetAttribute, &[Arg::literal("href")])
+                    .call(Key::GetAttribute, &[Arg::literal(lit!("href"))])
                     .arg(),
                 location().get(Key::Href).arg(),
             ],
         );
         let path = url.get(Key::Pathname);
         if !url.get(Key::Origin).same(location().get(Key::Origin))
-            || !path.call_boolean(Key::EndsWith, Arg::literal("/"))
+            || !path.call_boolean(Key::EndsWith, Arg::literal(lit!("/")))
         {
             return;
         }
-        if path.same(location().get(Key::Pathname)) && !url.get(Key::Hash).equal_text("") {
-            if !anchor.closest(".toc").is_null() && scroll_to_hash(&url, !motion::reduced()) {
+        if path.same(location().get(Key::Pathname)) && !url.get(Key::Hash).equal_text(lit!("")) {
+            if !anchor.closest(lit!(".toc")).is_null() && scroll_to_hash(&url, !motion::reduced()) {
                 event.call(Key::PreventDefault, &[]);
                 if !url.get(Key::Href).same(location().get(Key::Href)) {
                     push_url(&url);
@@ -318,17 +315,20 @@ impl App {
         if (event.boolean(Key::MetaKey) || event.boolean(Key::CtrlKey))
             && !event.boolean(Key::AltKey)
             && !event.boolean(Key::ShiftKey)
-            && (key.equal_text("k") || key.equal_text("K"))
+            && (key.equal_text(lit!("k")) || key.equal_text(lit!("K")))
         {
             event.call(Key::PreventDefault, &[]);
-            if !query("#search-input").is_null() {
+            if !query(lit!("#search-input")).is_null() {
                 focus_search_input();
                 return;
             }
             self.navigate(
                 Js::construct(
                     Key::Url,
-                    &[Arg::literal("/search/"), location().get(Key::Href).arg()],
+                    &[
+                        Arg::literal(lit!("/search/")),
+                        location().get(Key::Href).arg(),
+                    ],
                 ),
                 true,
                 true,
@@ -336,15 +336,15 @@ impl App {
         }
     }
     fn navigate(&self, url: Js, push: bool, focus_search: bool) {
-        self.math_copy.close();
+        self.math_copy.detach();
         self.toc.cancel();
         self.record_scroll();
-        let contents = query("#page-content .mobile-toc");
+        let contents = query(lit!("#page-content .mobile-toc"));
         if !contents.is_null() {
             self.pages
                 .call(Key::Get, &[self.path.get().arg()])
                 .item(0)
-                .query(".mobile-toc")
+                .query(lit!(".mobile-toc"))
                 .set(Key::Open, contents.get(Key::Open).arg());
         }
         let path = url.get(Key::Pathname);
@@ -365,7 +365,7 @@ impl App {
             push_url(&url);
         }
         if self.path.get().same(path) && !cached.is_null() {
-            required("#main-content").remove_attr("aria-busy");
+            required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
             self.search.on_page();
             if focus_search {
                 focus_search_input();
@@ -378,8 +378,8 @@ impl App {
             self.commit(&url, &cached, position, focus_search);
             return;
         }
-        required("#main-content").set_attr("aria-busy", "true");
-        required("#navigation-status").set_text("Loading page…");
+        required(lit!("#main-content")).set_attr(lit!("aria-busy"), lit!("true"));
+        required(lit!("#navigation-status")).set_text(lit!("Loading page…"));
         self.requests.call(
             Key::Set,
             &[
@@ -416,51 +416,53 @@ impl App {
                 );
             }
         } else if current {
+            self.math_copy.detach();
             self.set_path(path);
             update_header(&path);
-            let current = required("#page-content");
+            let current = required(lit!("#page-content"));
             let incoming = current.call(Key::CloneNode, &[]);
-            incoming.call_void(Key::Append, browser::template("#page-error").arg());
+            incoming.call_void(Key::Append, browser::template(lit!("#page-error")).arg());
             motion::replace(&current, &incoming, true);
-            required("#main-content").remove_attr("aria-busy");
-            required("#navigation-status").set_text("Unable to load this page.");
+            required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
+            required(lit!("#navigation-status")).set_text(lit!("Unable to load this page."));
             restore_position(&url, 0.0);
             self.toc.on_page();
         }
     }
     fn commit(&self, url: &Js, page: &Js, position: f64, focus_search: bool) {
+        self.math_copy.detach();
         let path = url.get(Key::Pathname);
         self.set_path(path);
         update_header(&path);
         motion::replace(
-            &required("#page-content"),
+            &required(lit!("#page-content")),
             &page.item(0).duplicate(),
-            position == 0.0 && url.get(Key::Hash).equal_text(""),
+            position == 0.0 && url.get(Key::Hash).equal_text(lit!("")),
         );
-        required("#main-content").remove_attr("aria-busy");
-        let nodes = document().call(Key::QuerySelectorAll, &[Arg::literal("[data-page-meta]")]);
-        for i in 0..nodes.number(Key::Length) as u32 {
+        required(lit!("#main-content")).remove_attr(lit!("aria-busy"));
+        let nodes = document().call(
+            Key::QuerySelectorAll,
+            &[Arg::literal(lit!("[data-page-meta]"))],
+        );
+        for i in 0..nodes.uint(Key::Length) {
             nodes.item(i).call(Key::Remove, &[]);
         }
         document()
             .get(Key::Head)
             .call_void(Key::Append, page.item(1).duplicate().arg());
-        required("#navigation-status").set(Key::TextContent, document().get(Key::Title).arg());
+        required(lit!("#navigation-status"))
+            .set(Key::TextContent, document().get(Key::Title).arg());
         restore_position(url, position);
         self.search.on_page();
         self.toc.on_page();
-        self.math_copy.on_page();
         if focus_search {
             focus_search_input();
         }
-        browser::mark("page-rendered");
+        browser::mark(lit!("page-rendered"));
     }
     fn copy(&self, button: Js) {
         let token = self.token();
-        let text = if button
-            .call(Key::GetAttribute, &[Arg::literal("data-copy")])
-            .equal_text("math")
-        {
+        let text = if self.math_copy.is_button(button) {
             let text = self.math_copy.begin_copy(token);
             if text.is_null() {
                 return;
@@ -468,16 +470,15 @@ impl App {
             text
         } else {
             button
-                .closest(".code-block")
-                .query("code")
+                .closest(lit!(".code-block"))
+                .query(lit!("code"))
                 .get(Key::TextContent)
         };
-        required("#copy-status").set_text("");
+        required(lit!("#copy-status")).set_text(lit!(""));
         self.copies
             .call(Key::Set, &[Arg::integer(token), button.arg()]);
         match window()
-            .get(Key::Navigator)
-            .get(Key::Clipboard)
+            .get2(Key::Navigator, Key::Clipboard)
             .try_call(Key::WriteText, &[text.arg()])
         {
             Ok(promise) => promise.subscribe(COPY, token),
@@ -487,16 +488,17 @@ impl App {
     fn copied(&self, token: u32, copied: bool) {
         let button = self.copies.call(Key::Get, &[Arg::integer(token)]);
         if !button.is_null() {
-            if button
-                .call(Key::GetAttribute, &[Arg::literal("data-copy")])
-                .equal_text("math")
-                && !self.math_copy.finished(token)
-            {
-                return;
+            // Removed map entries fence off superseded promises and timers.
+            if self.math_copy.is_button(button) {
+                math_copy::MathCopy::finished(button);
             }
-            let message = if copied { "Copied" } else { "Copy failed" };
+            let message = if copied {
+                lit!("Copied")
+            } else {
+                lit!("Copy failed")
+            };
             button.set_text(message);
-            required("#copy-status").set_text(message);
+            required(lit!("#copy-status")).set_text(message);
             browser::delay(1800, 0, token);
         }
     }
@@ -509,52 +511,59 @@ impl App {
 }
 
 fn update_header(path: &Js) {
-    let home = path.equal_text("/");
-    required(".site-header").set(
+    let home = path.equal_text(lit!("/"));
+    required(lit!(".site-header")).set(
         Key::ClassName,
-        Arg::string(if home {
-            "site-header home-header"
+        Arg::literal(if home {
+            lit!("site-header home-header")
         } else {
-            "site-header"
+            lit!("site-header")
         }),
     );
-    let heading = required("#brand-heading");
-    heading.set_attr("role", if home { "heading" } else { "none" });
-    let brand = required(".brand");
+    let heading = required(lit!("#brand-heading"));
+    heading.set_attr(
+        lit!("role"),
+        if home { lit!("heading") } else { lit!("none") },
+    );
+    let brand = required(lit!(".brand"));
     if home {
-        heading.set_attr("aria-level", "1");
-        brand.set_attr("aria-current", "page");
+        heading.set_attr(lit!("aria-level"), lit!("1"));
+        brand.set_attr(lit!("aria-current"), lit!("page"));
     } else {
-        heading.remove_attr("aria-level");
-        brand.remove_attr("aria-current");
+        heading.remove_attr(lit!("aria-level"));
+        brand.remove_attr(lit!("aria-current"));
     }
-    let links = document().call(Key::QuerySelectorAll, &[Arg::literal("[data-nav]")]);
-    for i in 0..links.number(Key::Length) as u32 {
+    let links = document().call(Key::QuerySelectorAll, &[Arg::literal(lit!("[data-nav]"))]);
+    for i in 0..links.uint(Key::Length) {
         let link = links.item(i);
-        let href = link.call(Key::GetAttribute, &[Arg::literal("href")]);
-        if !href.equal_text("/") && path.call_boolean(Key::StartsWith, href.arg()) {
-            link.set_attr("aria-current", "page");
+        let href = link.call(Key::GetAttribute, &[Arg::literal(lit!("href"))]);
+        if !href.equal_text(lit!("/")) && path.call_boolean(Key::StartsWith, href.arg()) {
+            link.set_attr(lit!("aria-current"), lit!("page"));
         } else {
-            link.remove_attr("aria-current");
+            link.remove_attr(lit!("aria-current"));
         }
     }
 }
 fn push_url(url: &Js) {
     window().get(Key::History).call(
         Key::PushState,
-        &[Arg::null(), Arg::literal(""), url.get(Key::Href).arg()],
+        &[
+            Arg::null(),
+            Arg::literal(lit!("")),
+            url.get(Key::Href).arg(),
+        ],
     );
 }
 fn scroll_to_hash(url: &Js, smooth: bool) -> bool {
     let mut hash = url.get(Key::Hash);
-    let has_hash = !hash.equal_text("");
-    while hash.call_boolean(Key::StartsWith, Arg::literal("#")) {
+    let has_hash = !hash.equal_text(lit!(""));
+    while hash.call_boolean(Key::StartsWith, Arg::literal(lit!("#"))) {
         hash = hash.call(Key::Slice, &[Arg::integer(1)]);
     }
     if has_hash && let Ok(id) = window().try_call(Key::DecodeURIComponent, &[hash.arg()]) {
         let element = document().call(Key::GetElementById, &[id.arg()]);
         if !element.is_null() {
-            element.set_attr("tabindex", "-1");
+            element.set_attr(lit!("tabindex"), lit!("-1"));
             browser::focus(&element);
             if smooth {
                 app().toc.scroll_to(&element);
@@ -571,10 +580,10 @@ fn restore_position(url: &Js, position: f64) {
         return;
     }
     window().call(Key::ScrollTo, &[Arg::integer(0), Arg::number(position)]);
-    browser::focus(&required("#main-content"));
+    browser::focus(&required(lit!("#main-content")));
 }
 fn focus_search_input() {
-    let input = query("#search-input");
+    let input = query(lit!("#search-input"));
     if !input.is_null() {
         browser::focus(&input);
         input.call(Key::Select, &[]);

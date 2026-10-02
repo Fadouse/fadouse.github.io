@@ -19,6 +19,11 @@
   background: var(--background);
 }
 
+.math-popover {
+  position: fixed;
+  visibility: hidden;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;

@@ -1,6 +1,10 @@
 use alloc::{string::String, vec::Vec};
 use core::marker::PhantomData;
 include!(concat!(env!("OUT_DIR"), "/keys.rs"));
+include!(concat!(env!("OUT_DIR"), "/literals.rs"));
+
+#[derive(Clone, Copy)]
+pub struct Literal(pub u32);
 
 #[link(wasm_import_module = "d")]
 unsafe extern "C" {
@@ -23,22 +27,15 @@ unsafe extern "C" {
     #[link_name = "j"]
     fn try_get(value: u32, key: Key) -> i32;
     #[link_name = "k"]
-    fn set(value: u32, key: Key, data: *const u8, kind: usize);
+    fn set(value: u32, key: Key, data: u32);
     #[link_name = "l"]
     fn call(value: u32, key: Key, args: *const Arg, count: usize) -> u32;
     #[link_name = "m"]
     fn call0(value: u32, key: Key) -> u32;
     #[link_name = "n"]
-    fn call1(value: u32, key: Key, data: *const u8, kind: usize) -> u32;
+    fn call1(value: u32, key: Key, data: u32) -> u32;
     #[link_name = "o"]
-    fn call2(
-        value: u32,
-        key: Key,
-        data: *const u8,
-        kind: usize,
-        data2: *const u8,
-        kind2: usize,
-    ) -> u32;
+    fn call2(value: u32, key: Key, data: u32, data2: u32) -> u32;
     #[link_name = "p"]
     fn try_call(value: u32, key: Key, args: *const Arg, count: usize) -> i32;
     #[link_name = "q"]
@@ -48,7 +45,7 @@ unsafe extern "C" {
     #[link_name = "s"]
     fn equal(a: u32, b: u32) -> bool;
     #[link_name = "t"]
-    fn equal_text(value: u32, pointer: *const u8, length: usize) -> bool;
+    fn equal_text(value: u32, text: u32) -> bool;
     #[link_name = "u"]
     fn numeric(value: u32) -> f64;
     #[link_name = "v"]
@@ -72,60 +69,45 @@ unsafe extern "C" {
     #[link_name = "E"]
     fn try_call0(value: u32, key: Key) -> i32;
     #[link_name = "F"]
-    fn try_call1(value: u32, key: Key, data: *const u8, kind: usize) -> i32;
+    fn try_call1(value: u32, key: Key, data: u32) -> i32;
     #[link_name = "G"]
-    fn try_call2(
-        value: u32,
-        key: Key,
-        data: *const u8,
-        kind: usize,
-        data2: *const u8,
-        kind2: usize,
-    ) -> i32;
+    fn try_call2(value: u32, key: Key, data: u32, data2: u32) -> i32;
     #[link_name = "H"]
     fn construct0(key: Key) -> i32;
     #[link_name = "I"]
-    fn construct1(key: Key, data: *const u8, kind: usize) -> i32;
+    fn construct1(key: Key, data: u32) -> i32;
     #[link_name = "J"]
-    fn construct2(key: Key, data: *const u8, kind: usize, data2: *const u8, kind2: usize) -> i32;
+    fn construct2(key: Key, data: u32, data2: u32) -> i32;
     #[link_name = "K"]
-    fn array2(data: *const u8, kind: usize, data2: *const u8, kind2: usize) -> u32;
+    fn array2(data: u32, data2: u32) -> u32;
     #[link_name = "L"]
-    fn array3(
-        data: *const u8,
-        kind: usize,
-        data2: *const u8,
-        kind2: usize,
-        data3: *const u8,
-        kind3: usize,
-    ) -> u32;
+    fn array3(data: u32, data2: u32, data3: u32) -> u32;
     #[link_name = "M"]
-    fn call3(
-        value: u32,
-        key: Key,
-        data: *const u8,
-        kind: usize,
-        data2: *const u8,
-        kind2: usize,
-        data3: *const u8,
-        kind3: usize,
-    ) -> u32;
+    fn call3(value: u32, key: Key, data: u32, data2: u32, data3: u32) -> u32;
     #[link_name = "N"]
     fn get_index(value: u32, index: u32) -> u32;
     #[link_name = "O"]
-    fn call1_boolean(value: u32, key: Key, data: *const u8, kind: usize) -> bool;
+    fn call1_boolean(value: u32, key: Key, data: u32) -> bool;
     #[link_name = "P"]
     fn replace_retained(old: u32, value: u32) -> u32;
     #[link_name = "Q"]
-    fn call1_void(value: u32, key: Key, data: *const u8, kind: usize);
+    fn call1_void(value: u32, key: Key, data: u32);
     #[link_name = "R"]
     fn get2(value: u32, key: Key, next: Key) -> u32;
+    #[link_name = "S"]
+    fn literal_pool(pointer: *const u8);
+    #[link_name = "T"]
+    fn from_literal(value: u32) -> u32;
+    #[link_name = "U"]
+    fn get_integer(value: u32, key: Key) -> u32;
 }
 
-#[repr(C)]
+// One word per argument: scoped browser handle, boolean, or tagged C string.
+// Pool offsets remain in compiler WASM memory; their compact negative tags
+// avoid passing a pointer and length with every browser call.
+#[repr(transparent)]
 pub struct Arg<'a> {
-    data: *const u8,
-    kind: usize,
+    data: u32,
     lifetime: PhantomData<&'a Js>,
 }
 impl<'a> Arg<'a> {
@@ -134,43 +116,42 @@ impl<'a> Arg<'a> {
     }
     pub fn bytes(value: &'a [u8]) -> Self {
         Self {
-            data: value.as_ptr(),
-            kind: (value.len() + 1) * 2,
+            data: unsafe { string(value.as_ptr(), value.len()) },
             lifetime: PhantomData,
         }
     }
-    pub fn literal(value: &'static str) -> Self {
+    pub fn literal(value: Literal) -> Self {
         Self {
-            data: value.as_ptr(),
-            kind: (value.len() + 1) * 2 + 1,
+            data: value.0,
             lifetime: PhantomData,
         }
     }
     pub fn number(value: f64) -> Self {
         Self {
-            data: unsafe { make_number(value) } as *const u8,
-            kind: 0,
+            data: unsafe { make_number(value) },
             lifetime: PhantomData,
         }
     }
+    #[inline(never)]
     pub fn integer(value: u32) -> Self {
         Self {
-            data: value as *const u8,
-            kind: usize::MAX - 1,
+            data: if value <= 0x7fff_efff {
+                0xffff_efff - value
+            } else {
+                unsafe { make_number(f64::from(value)) }
+            },
             lifetime: PhantomData,
         }
     }
     pub fn boolean(value: bool) -> Self {
         Self {
-            data: usize::from(value) as *const u8,
-            kind: usize::MAX,
+            data: u32::MAX - u32::from(!value),
             lifetime: PhantomData,
         }
     }
     pub fn null() -> Self {
         Self {
-            data: core::ptr::null(),
-            kind: 0,
+            data: 0,
             lifetime: PhantomData,
         }
     }
@@ -182,9 +163,9 @@ impl<'a> Arg<'a> {
 #[repr(transparent)]
 pub struct Js(u32);
 
-fn result(value: i32) -> Result<Js, Js> {
+fn result(value: i32) -> Result<Js, ()> {
     if value < 0 {
-        Err(Js((-value) as u32))
+        Err(())
     } else {
         Ok(Js(value as u32))
     }
@@ -208,8 +189,7 @@ impl Js {
     }
     pub fn arg(self) -> Arg<'static> {
         Arg {
-            data: self.0 as *const u8,
-            kind: 0,
+            data: self.0,
             lifetime: PhantomData,
         }
     }
@@ -222,11 +202,8 @@ impl Js {
     pub fn is_null(self) -> bool {
         self.0 == 0
     }
-    pub fn from_text(value: &str) -> Self {
-        Self::from_bytes(value.as_bytes())
-    }
-    pub fn from_bytes(value: &[u8]) -> Self {
-        Self(unsafe { string(value.as_ptr(), value.len()) })
+    pub fn from_literal(value: Literal) -> Self {
+        Self(unsafe { from_literal(value.0) })
     }
     pub fn object() -> Self {
         Self(unsafe { object() })
@@ -235,14 +212,14 @@ impl Js {
     pub fn array(values: &[Arg]) -> Self {
         Self(unsafe {
             match values {
-                [a, b] => array2(a.data, a.kind, b.data, b.kind),
-                [a, b, c] => array3(a.data, a.kind, b.data, b.kind, c.data, c.kind),
+                [a, b] => array2(a.data, b.data),
+                [a, b, c] => array3(a.data, b.data, c.data),
                 _ => array(values.as_ptr(), values.len()),
             }
         })
     }
     #[inline(never)]
-    pub fn try_get(self, name: Key) -> Result<Self, Self> {
+    pub fn try_get(self, name: Key) -> Result<Self, ()> {
         result(unsafe { try_get(self.0, name) })
     }
     #[inline]
@@ -253,25 +230,28 @@ impl Js {
         Self(unsafe { get2(self.0, name, next) })
     }
     pub fn call_void(self, name: Key, arg: Arg<'_>) {
-        unsafe { call1_void(self.0, name, arg.data, arg.kind) };
+        unsafe { call1_void(self.0, name, arg.data) };
     }
     pub fn number(self, name: Key) -> f64 {
         unsafe { get_number(self.0, name) }
+    }
+    pub fn uint(self, name: Key) -> u32 {
+        unsafe { get_integer(self.0, name) }
     }
     pub fn boolean(self, name: Key) -> bool {
         unsafe { get_boolean(self.0, name) }
     }
     #[inline]
     pub fn set(self, name: Key, value: Arg) {
-        unsafe { set(self.0, name, value.data, value.kind) };
+        unsafe { set(self.0, name, value.data) };
     }
     #[inline(always)]
-    pub fn try_call(self, name: Key, args: &[Arg]) -> Result<Self, Self> {
+    pub fn try_call(self, name: Key, args: &[Arg]) -> Result<Self, ()> {
         result(unsafe {
             match args {
                 [] => try_call0(self.0, name),
-                [a] => try_call1(self.0, name, a.data, a.kind),
-                [a, b] => try_call2(self.0, name, a.data, a.kind, b.data, b.kind),
+                [a] => try_call1(self.0, name, a.data),
+                [a, b] => try_call2(self.0, name, a.data, b.data),
                 _ => try_call(self.0, name, args.as_ptr(), args.len()),
             }
         })
@@ -281,9 +261,9 @@ impl Js {
         Self(unsafe {
             match args {
                 [] => call0(self.0, name),
-                [a] => call1(self.0, name, a.data, a.kind),
-                [a, b] => call2(self.0, name, a.data, a.kind, b.data, b.kind),
-                [a, b, c] => call3(self.0, name, a.data, a.kind, b.data, b.kind, c.data, c.kind),
+                [a] => call1(self.0, name, a.data),
+                [a, b] => call2(self.0, name, a.data, b.data),
+                [a, b, c] => call3(self.0, name, a.data, b.data, c.data),
                 _ => call(self.0, name, args.as_ptr(), args.len()),
             }
         })
@@ -293,8 +273,8 @@ impl Js {
         constructed(unsafe {
             match args {
                 [] => construct0(name),
-                [a] => construct1(name, a.data, a.kind),
-                [a, b] => construct2(name, a.data, a.kind, b.data, b.kind),
+                [a] => construct1(name, a.data),
+                [a, b] => construct2(name, a.data, b.data),
                 _ => construct(name, args.as_ptr(), args.len()),
             }
         })
@@ -303,13 +283,13 @@ impl Js {
         Self(unsafe { get_index(self.0, index) })
     }
     pub fn call_boolean(self, name: Key, arg: Arg<'_>) -> bool {
-        unsafe { call1_boolean(self.0, name, arg.data, arg.kind) }
+        unsafe { call1_boolean(self.0, name, arg.data) }
     }
     pub fn same(self, other: Self) -> bool {
         unsafe { equal(self.0, other.0) }
     }
-    pub fn equal_text(self, text: &'static str) -> bool {
-        unsafe { equal_text(self.0, text.as_ptr(), text.len()) }
+    pub fn equal_text(self, text: Literal) -> bool {
+        unsafe { equal_text(self.0, Arg::literal(text).data) }
     }
     pub fn truthy(self) -> bool {
         unsafe { truthy(self.0) }
@@ -344,29 +324,31 @@ impl Js {
         bytes
     }
     #[inline(never)]
-    pub fn set_attr(self, name: &'static str, value: &'static str) {
+    pub fn set_attr(self, name: Literal, value: Literal) {
         self.call(
             Key::SetAttribute,
             &[Arg::literal(name), Arg::literal(value)],
         );
     }
-    pub fn remove_attr(self, name: &'static str) {
+    pub fn remove_attr(self, name: Literal) {
         self.call(Key::RemoveAttribute, &[Arg::literal(name)]);
     }
-    pub fn has_attr(self, name: &'static str) -> bool {
+    #[inline(always)]
+    pub fn has_attr(self, name: Literal) -> bool {
         self.call_boolean(Key::HasAttribute, Arg::literal(name))
     }
-    pub fn query(self, selector: &'static str) -> Self {
+    #[inline(always)]
+    pub fn query(self, selector: Literal) -> Self {
         self.call(Key::QuerySelector, &[Arg::literal(selector)])
     }
-    pub fn closest(self, selector: &'static str) -> Self {
+    pub fn closest(self, selector: Literal) -> Self {
         self.call(Key::Closest, &[Arg::literal(selector)])
     }
     pub fn duplicate(self) -> Self {
         self.call(Key::CloneNode, &[Arg::boolean(true)])
     }
-    pub fn set_text(self, text: &str) {
-        self.set(Key::TextContent, Arg::string(text));
+    pub fn set_text(self, text: Literal) {
+        self.set(Key::TextContent, Arg::literal(text));
     }
     pub fn subscribe(self, kind: u32, token: u32) {
         unsafe { promise(self.0, kind, token) };
@@ -376,6 +358,10 @@ impl Js {
     pub fn listen(self, events: &'static [u8]) {
         unsafe { listen(self.0, events.as_ptr(), events.len()) };
     }
+}
+
+pub fn initialize_literals() {
+    unsafe { literal_pool(LITERALS.as_ptr()) };
 }
 
 pub fn delay(milliseconds: i32, kind: u32, token: u32) {
@@ -390,10 +376,10 @@ pub fn window() -> Js {
 pub fn document() -> Js {
     Js(2)
 }
-pub fn query(selector: &'static str) -> Js {
+pub fn query(selector: Literal) -> Js {
     document().query(selector)
 }
-pub fn required(selector: &'static str) -> Js {
+pub fn required(selector: Literal) -> Js {
     let value = query(selector);
     assert!(!value.is_null());
     value
@@ -404,7 +390,7 @@ pub fn location() -> Js {
 pub fn url() -> Js {
     Js::construct(Key::Url, &[location().get(Key::Href).arg()])
 }
-pub fn template(selector: &'static str) -> Js {
+pub fn template(selector: Literal) -> Js {
     required(selector).get(Key::Content).duplicate()
 }
 pub fn focus(element: &Js) {
@@ -412,7 +398,7 @@ pub fn focus(element: &Js) {
     options.set(Key::PreventScroll, Arg::boolean(true));
     let _ = element.try_call(Key::Focus, &[options.arg()]);
 }
-pub fn mark(name: &'static str) {
+pub fn mark(name: Literal) {
     let _ = window()
         .get(Key::Performance)
         .try_call(Key::Mark, &[Arg::literal(name)]);
@@ -420,39 +406,42 @@ pub fn mark(name: &'static str) {
 pub fn saved_theme() -> Js {
     window()
         .try_get(Key::LocalStorage)
-        .and_then(|storage| storage.try_call(Key::GetItem, &[Arg::literal("theme")]))
+        .and_then(|storage| storage.try_call(Key::GetItem, &[Arg::literal(lit!("theme"))]))
         .ok()
-        .filter(|value| value.equal_text("light") || value.equal_text("dark"))
-        .unwrap_or_else(|| Js::from_text("system"))
+        .filter(|value| value.equal_text(lit!("light")) || value.equal_text(lit!("dark")))
+        .unwrap_or_else(|| Js::from_literal(lit!("system")))
 }
 pub fn set_theme(theme: &Js) {
     let root = document().get(Key::DocumentElement);
-    if theme.equal_text("system") {
-        root.remove_attr("data-theme");
+    if theme.equal_text(lit!("system")) {
+        root.remove_attr(lit!("data-theme"));
     } else {
         root.call(
             Key::SetAttribute,
-            &[Arg::literal("data-theme"), theme.arg()],
+            &[Arg::literal(lit!("data-theme")), theme.arg()],
         );
     }
-    let _ = window()
-        .try_get(Key::LocalStorage)
-        .and_then(|storage| storage.try_call(Key::SetItem, &[Arg::literal("theme"), theme.arg()]));
+    let _ = window().try_get(Key::LocalStorage).and_then(|storage| {
+        storage.try_call(Key::SetItem, &[Arg::literal(lit!("theme")), theme.arg()])
+    });
     let buttons = document().call(
         Key::QuerySelectorAll,
-        &[Arg::literal("[data-theme-choice]")],
+        &[Arg::literal(lit!("[data-theme-choice]"))],
     );
-    for i in 0..buttons.number(Key::Length) as u32 {
+    for i in 0..buttons.uint(Key::Length) {
         let button = buttons.item(i);
         button.set_attr(
-            "aria-pressed",
+            lit!("aria-pressed"),
             if button
-                .call(Key::GetAttribute, &[Arg::literal("data-theme-choice")])
+                .call(
+                    Key::GetAttribute,
+                    &[Arg::literal(lit!("data-theme-choice"))],
+                )
                 .same(*theme)
             {
-                "true"
+                lit!("true")
             } else {
-                "false"
+                lit!("false")
             },
         );
     }

@@ -107,6 +107,7 @@ dependencies = [
  "lol_alloc",
  "serde_json",
  "shared",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2341,6 +2342,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "clap",
+ "html5ever",
  "imagesize",
  "oxc",
  "percent-encoding",

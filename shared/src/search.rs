@@ -397,20 +397,10 @@ pub fn search_terms<'a, S: AsRef<str>, B: SpanList>(
         'entries: for (index, entry) in entries.iter().enumerate() {
             let mut score = 0;
             for term in terms {
-                let mut weight = 0;
-                for (field, value) in [
-                    entry.title.normalized.as_ref(),
-                    entry.tags.as_ref(),
-                    entry.description.as_ref(),
-                    entry.body.normalized.as_ref(),
-                ]
-                .iter()
-                .zip([8, 4, 2, 1])
-                {
-                    if find(field, term).is_some() {
-                        weight += value;
-                    }
-                }
+                let weight = usize::from(find(entry.title.normalized.as_ref(), term).is_some()) * 8
+                    + usize::from(find(entry.tags.as_ref(), term).is_some()) * 4
+                    + usize::from(find(entry.description.as_ref(), term).is_some()) * 2
+                    + usize::from(find(entry.body.normalized.as_ref(), term).is_some());
                 if weight == 0 {
                     continue 'entries;
                 }

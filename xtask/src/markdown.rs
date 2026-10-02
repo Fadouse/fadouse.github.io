@@ -1,12 +1,43 @@
 use std::{
+    cell::{Cell, RefCell},
     collections::{BTreeSet, HashSet},
     path::Path,
 };
 
 use anyhow::{Context, Result};
+use html5ever::tokenizer::{BufferQueue, TagKind, Token, TokenSink, TokenSinkResult, Tokenizer};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd, html};
 use sha2::{Digest, Sha256};
 use shared::{Heading, PostContent, normalize};
+
+// Inspect the sanitized HTML so Markdown links and raw HTML links/buttons
+// both keep a single keyboard stop. Only generated formula slots are enhanced.
+#[derive(Default)]
+struct FormulaFocus {
+    interactive: Cell<usize>,
+    slots: RefCell<HashSet<String>>,
+}
+impl TokenSink for FormulaFocus {
+    type Handle = ();
+    fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
+        if let Token::TagToken(tag) = token {
+            if matches!(&*tag.name, "a" | "button") {
+                self.interactive.set(match tag.kind {
+                    TagKind::StartTag => self.interactive.get() + 1,
+                    TagKind::EndTag => self.interactive.get().saturating_sub(1),
+                });
+            } else if tag.kind == TagKind::StartTag
+                && &*tag.name == "span"
+                && self.interactive.get() == 0
+                && let Some(id) = tag.attrs.iter().find(|attr| &*attr.name.local == "id")
+                && id.value.starts_with("math-")
+            {
+                self.slots.borrow_mut().insert(id.value.to_string());
+            }
+        }
+        TokenSinkResult::Continue
+    }
+}
 
 struct Formula<'a> {
     tex: &'a str,
@@ -386,13 +417,25 @@ pub fn render(source: &str, media_dir: &Path) -> Result<RenderedMarkdown> {
         .add_tag_attributes("img", ["loading", "decoding", "width", "height"])
         .clean(&rendered)
         .to_string();
-    for (index, formula) in formulas {
+    let input = BufferQueue::default();
+    input.push_back(html.as_str().into());
+    let focus = Tokenizer::new(FormulaFocus::default(), Default::default());
+    let _ = focus.feed(&input);
+    focus.end();
+    let focus = focus.sink.slots.into_inner();
+    for (index, mut formula) in formulas {
         let marker = slot(index);
         if html.contains(&marker) {
             anyhow::ensure!(
                 html.matches(&marker).count() == 1,
                 "Duplicate generated formula placeholder"
             );
+            if focus.contains(&format!("math-{}-{index}", &fingerprint[..32])) {
+                formula.html =
+                    formula
+                        .html
+                        .replacen(" dir=\"ltr\"", " dir=\"ltr\" tabindex=\"0\"", 1);
+            }
             html = html.replacen(&marker, &formula.html, 1);
         }
     }
@@ -441,6 +484,7 @@ let price = "$not_math$";
         assert_eq!(rendered.content.headings.len(), 1);
         assert_eq!(rendered.content.headings[0].text, "The value x^2");
         assert_eq!(rendered.content.html.matches("<semantics>").count(), 8);
+        assert_eq!(rendered.content.html.matches("tabindex=\"0\"").count(), 8);
         assert!(rendered.content.html.contains("<table>"));
         assert!(rendered.content.html.contains("<li>"));
         assert!(rendered.content.html.contains("<code>$not_math$</code>"));
@@ -465,6 +509,14 @@ let price = "$not_math$";
                 .contains("href=\"https://example.com/a$raw$\"")
         );
         assert_eq!(link.content.html.matches("<semantics>").count(), 1);
+        assert!(!link.content.html.contains("tabindex=\"0\""));
+        let raw_links = render(
+            "Raw <a href=\"/about/\">$x$</a> and <button>$y$</button>, then $z$.",
+            Path::new("."),
+        )
+        .unwrap();
+        assert_eq!(raw_links.content.html.matches("<semantics>").count(), 3);
+        assert_eq!(raw_links.content.html.matches("tabindex=\"0\"").count(), 1);
         let rule = render(r"$$\rule{2em}{1ex}$$", Path::new(".")).unwrap();
         assert!(rule.has_math);
         assert!(rule.math_fonts.is_empty());

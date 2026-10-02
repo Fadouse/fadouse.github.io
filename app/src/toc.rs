@@ -62,13 +62,14 @@ impl Toc {
     }
 
     pub fn on_page(&self) {
-        let links = query("#page-content").call(Key::QuerySelectorAll, &[Arg::literal(".toc a")]);
+        let links = query(lit!("#page-content"))
+            .call(Key::QuerySelectorAll, &[Arg::literal(lit!(".toc a"))]);
         // The renderer emits matching desktop and mobile lists, in that order.
-        let count = links.number(Key::Length) as u32 / 2;
+        let count = links.uint(Key::Length) / 2;
         // Only parsed Markdown headings have a generated heading anchor.
-        let headings = query("#page-content").call(
+        let headings = query(lit!("#page-content")).call(
             Key::QuerySelectorAll,
-            &[Arg::literal(".prose [id]:has(> .heading-anchor)")],
+            &[Arg::literal(lit!(".prose [id]:has(> .heading-anchor)"))],
         );
         self.links.set(self.links.get().replacing(links));
         self.headings.set(self.headings.get().replacing(headings));
@@ -144,12 +145,12 @@ impl Toc {
         // scrolls. Read before writing, only when selection or layout changes.
         let top = link.number(Key::OffsetTop) + 4.0;
         let height = (link.number(Key::OffsetHeight) - 8.0).max(0.0);
-        let sidebar = link.closest(".toc");
+        let sidebar = link.closest(lit!(".toc"));
         let style = sidebar.get(Key::Style);
         if previous != u32::MAX {
-            sidebar.set_attr("data-toc-motion", "");
+            sidebar.set_attr(lit!("data-toc-motion"), lit!(""));
         }
-        for (property, value) in [("--toc-top", top), ("--toc-height", height)] {
+        for (property, value) in [(lit!("--toc-top"), top), (lit!("--toc-height"), height)] {
             style.call(
                 Key::SetProperty,
                 &[Arg::literal(property), motion::pixels(value).arg()],
@@ -163,12 +164,12 @@ impl Toc {
                 self.links
                     .get()
                     .item(offset + previous)
-                    .remove_attr("aria-current");
+                    .remove_attr(lit!("aria-current"));
             }
             self.links
                 .get()
                 .item(offset + active)
-                .set_attr("aria-current", "location");
+                .set_attr(lit!("aria-current"), lit!("location"));
         }
     }
 }

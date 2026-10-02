@@ -24,11 +24,15 @@ export default async function initialize(url, integrity) {
   };
   const text = (pointer, length) => decoder.decode(bytes().subarray(pointer, pointer + length));
   const literals = new Map();
-  const literal = (pointer, length) => {
+  let literalBase;
+  const literal = pointer => {
     const cached = literals.get(pointer);
-    if (cached?.[0] === length) return cached[1];
-    const value = text(pointer, length);
-    literals.set(pointer, [length, value]);
+    if (cached !== undefined) return cached;
+    const data = bytes();
+    let end = pointer;
+    while (data[end] !== 0) end++;
+    const value = text(pointer, end - pointer);
+    literals.set(pointer, value);
     return value;
   };
   const hold = value => {
@@ -42,17 +46,16 @@ export default async function initialize(url, integrity) {
     try { return hold(action()); }
     catch (error) { return -hold(error); }
   };
-  const argument = (data, kind) => {
-    kind >>>= 0;
-    if (kind === 0) return values[data];
-    if (kind === 0xffffffff) return Boolean(data);
-    if (kind === 0xfffffffe) return data >>> 0;
-    const length = (kind >>> 1) - 1;
-    return kind & 1 ? literal(data, length) : text(data, length);
+  const argument = data => {
+    data >>>= 0;
+    if (data === 0xffffffff) return true;
+    if (data === 0xfffffffe) return false;
+    if (!(data & 0x80000000)) return values[data];
+    return data <= 0xffffefff ? 0xffffefff - data : literal(literalBase + 0xfffffffd - data);
   };
   const args = (pointer, length) => {
-    const fields = new Uint32Array(wasm.memory.buffer, pointer, length * 2);
-    return Array.from({ length }, (_, index) => argument(fields[index * 2], fields[index * 2 + 1]));
+    const fields = new Uint32Array(wasm.memory.buffer, pointer, length);
+    return Array.from({ length }, (_, index) => argument(fields[index]));
   };
   const dom = {
     // retain
@@ -74,8 +77,8 @@ export default async function initialize(url, integrity) {
     // try_get
     j: (index, key) => caught(() => values[index][names[key + 64]]),
     // set
-    k: (index, key, data, kind) => {
-      values[index][names[key + 64]] = argument(data, kind);
+    k: (index, key, data) => {
+      values[index][names[key + 64]] = argument(data);
     },
     // call
     l: (index, key, argumentsPointer, argumentsLength) => hold(
@@ -84,9 +87,9 @@ export default async function initialize(url, integrity) {
     // call0
     m: (index, key) => hold(values[index][names[key + 64]]()),
     // call1
-    n: (index, key, data, kind) => hold(values[index][names[key + 64]](argument(data, kind))),
+    n: (index, key, data) => hold(values[index][names[key + 64]](argument(data))),
     // call2
-    o: (index, key, data, kind, data2, kind2) => hold(values[index][names[key + 64]](argument(data, kind), argument(data2, kind2))),
+    o: (index, key, data, data2) => hold(values[index][names[key + 64]](argument(data), argument(data2))),
     // try_call
     p: (index, key, argumentsPointer, argumentsLength) => caught(() =>
       values[index][names[key + 64]](...args(argumentsPointer, argumentsLength))
@@ -100,7 +103,7 @@ export default async function initialize(url, integrity) {
     // equal
     s: (a, b) => values[a] === values[b],
     // equal_text
-    t: (index, pointer, length) => values[index] === literal(pointer, length),
+    t: (index, data) => values[index] === argument(data),
     // numeric
     u: index => Number(values[index]),
     // instance
@@ -138,25 +141,25 @@ export default async function initialize(url, integrity) {
     // try_call0
     E: (index, key) => caught(() => values[index][names[key + 64]]()),
     // try_call1
-    F: (index, key, data, kind) => caught(() => values[index][names[key + 64]](argument(data, kind))),
+    F: (index, key, data) => caught(() => values[index][names[key + 64]](argument(data))),
     // try_call2
-    G: (index, key, data, kind, data2, kind2) => caught(() => values[index][names[key + 64]](argument(data, kind), argument(data2, kind2))),
+    G: (index, key, data, data2) => caught(() => values[index][names[key + 64]](argument(data), argument(data2))),
     // construct0
     H: key => caught(() => new globalThis[names[key + 64]]()),
     // construct1
-    I: (key, data, kind) => caught(() => new globalThis[names[key + 64]](argument(data, kind))),
+    I: (key, data) => caught(() => new globalThis[names[key + 64]](argument(data))),
     // construct2
-    J: (key, data, kind, data2, kind2) => caught(() => new globalThis[names[key + 64]](argument(data, kind), argument(data2, kind2))),
+    J: (key, data, data2) => caught(() => new globalThis[names[key + 64]](argument(data), argument(data2))),
     // array2
-    K: (data, kind, data2, kind2) => hold([argument(data, kind), argument(data2, kind2)]),
+    K: (data, data2) => hold([argument(data), argument(data2)]),
     // array3
-    L: (data, kind, data2, kind2, data3, kind3) => hold([argument(data, kind), argument(data2, kind2), argument(data3, kind3)]),
+    L: (data, data2, data3) => hold([argument(data), argument(data2), argument(data3)]),
     // call3
-    M: (index, key, data, kind, data2, kind2, data3, kind3) => hold(values[index][names[key + 64]](argument(data, kind), argument(data2, kind2), argument(data3, kind3))),
+    M: (index, key, data, data2, data3) => hold(values[index][names[key + 64]](argument(data), argument(data2), argument(data3))),
     // get_index
     N: (index, position) => hold(values[index][position]),
     // call1_boolean
-    O: (index, key, data, kind) => Boolean(values[index][names[key + 64]](argument(data, kind))),
+    O: (index, key, data) => Boolean(values[index][names[key + 64]](argument(data))),
     // replace_retained
     P: (old, index) => {
       pinned.add(index);
@@ -164,7 +167,13 @@ export default async function initialize(url, integrity) {
       return index;
     },
     // call1_void
-    Q: (index, key, data, kind) => { values[index][names[key + 64]](argument(data, kind)); },
+    Q: (index, key, data) => { values[index][names[key + 64]](argument(data)); },
+    // get_integer
+    U: (index, key) => values[index][names[key + 64]] >>> 0,
+    // from_literal
+    T: data => hold(argument(data)),
+    // literal_pool
+    S: pointer => { literalBase = pointer; },
     // get2
     R: (index, key, next) => hold(values[index][names[key + 64]][names[next + 64]])
   };

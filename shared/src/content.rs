@@ -130,10 +130,7 @@ pub fn page_metadata(catalog: &Catalog, path: &str) -> PageMetadata {
         description,
         canonical: format!("{}{}", catalog.site.url, path),
         article: post.is_some(),
-        noindex: catalog.preview
-            || !found
-            || path == "/search/"
-            || (path == "/about/" && catalog.site.about.trim().is_empty()),
+        noindex: catalog.preview || !found || path == "/search/",
     }
 }
 

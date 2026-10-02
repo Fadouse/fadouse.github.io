@@ -7,60 +7,63 @@ fn animate(element: &Js, property: Key, from: Arg<'_>, to: Arg<'_>, duration: u3
     keyframes.set(property, Js::array(&[from, to]).arg());
     let timing = Js::object();
     timing.set(Key::Duration, Arg::integer(duration));
-    timing.set(Key::Easing, Arg::literal("cubic-bezier(0.22, 1, 0.36, 1)"));
+    timing.set(
+        Key::Easing,
+        Arg::literal(lit!("cubic-bezier(0.22, 1, 0.36, 1)")),
+    );
     element.call(Key::Animate, &[keyframes.arg(), timing.arg()])
 }
 pub fn pixels(value: f64) -> Js {
     window()
         .call(Key::String, &[Arg::number(value)])
-        .call(Key::Concat, &[Arg::literal("px")])
+        .call(Key::Concat, &[Arg::literal(lit!("px"))])
 }
 pub fn reduced() -> bool {
     window()
         .call(
             Key::MatchMedia,
-            &[Arg::literal("(prefers-reduced-motion: reduce)")],
+            &[Arg::literal(lit!("(prefers-reduced-motion: reduce)"))],
         )
         .boolean(Key::Matches)
 }
 pub fn replace(current: &Js, incoming: &Js, layout: bool) {
-    if reduced() || current.number(Key::ChildElementCount) == 0.0 {
+    if reduced() || current.uint(Key::ChildElementCount) == 0 {
         current.call(Key::ReplaceWith, &[incoming.arg()]);
         return;
     }
-    let page = required("#page-content");
+    let page = required(lit!("#page-content"));
     let previous_height = page
         .call(Key::GetBoundingClientRect, &[])
         .number(Key::Height);
     let bounds = current.call(Key::GetBoundingClientRect, &[]);
     let opacity = window()
         .call(Key::GetComputedStyle, &[current.arg()])
-        .call(Key::GetPropertyValue, &[Arg::literal("opacity")]);
+        .call(Key::GetPropertyValue, &[Arg::literal(lit!("opacity"))]);
     for (element, only_layout) in [(current, false), (&page, true)] {
         let animations = element.call(Key::GetAnimations, &[]);
-        for i in 0..animations.number(Key::Length) as u32 {
+        for i in 0..animations.uint(Key::Length) {
             let animation = animations.item(i);
-            if !only_layout || animation.get(Key::Id).equal_text("content-layout") {
+            if !only_layout || animation.get(Key::Id).equal_text(lit!("content-layout")) {
                 animation.call(Key::Cancel, &[]);
             }
         }
     }
     current.call(Key::ReplaceWith, &[incoming.arg()]);
-    current.remove_attr("id");
-    let ids = current.call(Key::QuerySelectorAll, &[Arg::literal("[id]")]);
-    for i in 0..ids.number(Key::Length) as u32 {
-        ids.item(i).remove_attr("id");
+    current.remove_attr(lit!("id"));
+    let ids = current.call(Key::QuerySelectorAll, &[Arg::literal(lit!("[id]"))]);
+    for i in 0..ids.uint(Key::Length) {
+        ids.item(i).remove_attr(lit!("id"));
     }
     current.set(Key::Inert, Arg::boolean(true));
-    current.set_attr("aria-hidden", "true");
+    current.set_attr(lit!("aria-hidden"), lit!("true"));
     current
         .get(Key::ClassList)
-        .call(Key::Add, &[Arg::literal("content-departing")]);
+        .call(Key::Add, &[Arg::literal(lit!("content-departing"))]);
     let style = current.get(Key::Style);
     for (property, key) in [
-        ("left", Key::Left),
-        ("top", Key::Top),
-        ("width", Key::Width),
+        (lit!("left"), Key::Left),
+        (lit!("top"), Key::Top),
+        (lit!("width"), Key::Width),
     ] {
         style.call(
             Key::SetProperty,
@@ -70,7 +73,7 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
     document()
         .get(Key::Body)
         .call_void(Key::Append, current.arg());
-    let page = required("#page-content");
+    let page = required(lit!("#page-content"));
     let height = page
         .call(Key::GetBoundingClientRect, &[])
         .number(Key::Height);
@@ -82,14 +85,20 @@ pub fn replace(current: &Js, incoming: &Js, layout: bool) {
             pixels(height).arg(),
             180,
         )
-        .set(Key::Id, Arg::literal("content-layout"));
+        .set(Key::Id, Arg::literal(lit!("content-layout")));
     }
-    let leaving = animate(current, Key::Opacity, opacity.arg(), Arg::literal("0"), 100);
+    let leaving = animate(
+        current,
+        Key::Opacity,
+        opacity.arg(),
+        Arg::literal(lit!("0")),
+        100,
+    );
     animate(
         incoming,
         Key::Opacity,
-        Arg::literal("0"),
-        Arg::literal("1"),
+        Arg::literal(lit!("0")),
+        Arg::literal(lit!("1")),
         130,
     );
     app().remove_after(*current, &leaving.get(Key::Finished));
