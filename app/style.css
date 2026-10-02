@@ -119,7 +119,7 @@ small, time, summary {
 }
 
 .site-shell {
-  width: min(1040px, calc(100% - 80px));
+  width: min(1120px, calc(100% - 80px));
   min-height: 100dvh;
   margin: 0 auto;
   display: flex;
@@ -443,7 +443,7 @@ small, time, summary {
 }
 
 .article-header {
-  max-width: 720px;
+  max-width: min(760px, calc(100% - 264px));
   padding-bottom: 24px;
   margin-bottom: 32px;
   border-bottom: 1px solid var(--line);
@@ -459,7 +459,7 @@ small, time, summary {
 
 .article-layout {
   display: grid;
-  grid-template-columns: minmax(0, 720px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 760px) minmax(200px, 1fr);
   gap: 64px;
   align-items: start;
 }
@@ -580,7 +580,7 @@ small, time, summary {
 }
 
 .prose {
-  font-size: 18px;
+  font-size: 1.0625rem;
   line-height: 1.8;
   overflow-wrap: break-word;
 }
@@ -909,7 +909,11 @@ mark {
   margin: 16px 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
+  .article-header, .article-layout {
+    max-width: 760px;
+  }
+
   .article-layout {
     display: block;
   }
