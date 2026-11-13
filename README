@@ -1,0 +1,21 @@
+Fadouse
+=======
+
+Source of https://fadouse.github.io, my personal site and blog.
+
+The site is static.  A Rust builder turns Markdown into complete HTML
+pages, with code highlighting and math rendered at build time.  A no_std
+WebAssembly module, kept below 15 kB, then adds page transitions, search
+and reading aids on top of pages that are already complete.
+
+    content/    posts and media
+    app/        WebAssembly module and stylesheet
+    shared/     types shared by the module and the builder
+    xtask/      builder and local server
+
+Building needs rustup and Trunk 0.21.14; shell.nix provides both.
+
+    cargo xtask build --site-url http://127.0.0.1:8187 --preview
+    cargo xtask serve
+
+The code is licensed under GPL-3.0-only; see LICENSE.
