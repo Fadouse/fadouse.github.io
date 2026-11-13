@@ -74,8 +74,8 @@ pub fn replace(current: Js, incoming: Js, layout: bool, path: Js) {
     for i in 0..ids.uint(Key::Length) {
         ids.item(i).remove_attr(lit!("id"));
     }
+    // Inert also removes the departing copy from the accessibility tree.
     current.set(Key::Inert, Arg::boolean(true));
-    current.set_attr(lit!("aria-hidden"), lit!("true"));
     current
         .get(Key::ClassList)
         .call(Key::Add, &[Arg::literal(lit!("content-departing"))]);

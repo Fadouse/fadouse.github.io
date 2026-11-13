@@ -108,7 +108,7 @@ pub extern "C" fn start() {
     window()
         .get(Key::History)
         .set(Key::ScrollRestoration, Arg::literal(lit!("manual")));
-    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0\x0cfocusin\0");
+    document().listen(b"\x00click\0\x01keydown\0\x04input\0\x05submit\0\x06compositionstart\0\x07compositionend\0\x0cfocusin\0\x0fpointerover\0");
     window().listen(b"\x02popstate\0\x83scroll\0\x08resize\0\x09wheel\0\x09pointerdown\0");
     let viewport = window().get(Key::VisualViewport);
     if !viewport.is_null() {
@@ -141,6 +141,7 @@ pub extern "C" fn dispatch(kind: u32, value: u32) {
         }
         12 => app().math_copy.focus(&event),
         14 => app().math_copy.close(),
+        15 => app().prefetch(&event),
         _ => app().search.event(kind, &event),
     }
 }
@@ -281,29 +282,19 @@ impl App {
             }
             return;
         }
-        let anchor = target.closest(lit!("a[href]"));
-        if anchor.is_null() || anchor.has_attr(lit!("download")) {
+        let url = page_link(target);
+        if url.is_null() {
             return;
         }
-        let target = anchor.get_attr(lit!("target"));
-        if !target.is_null() && !target.equal_text(lit!("")) && !target.equal_text(lit!("_self")) {
-            return;
-        }
-        let url = Js::construct(
-            Key::Url,
-            &[
-                anchor.get_attr(lit!("href")).arg(),
-                location().get(Key::Href).arg(),
-            ],
-        );
         let path = url.get(Key::Pathname);
-        if !url.get(Key::Origin).same(location().get(Key::Origin))
-            || !path.call_boolean(Key::EndsWith, Arg::literal(lit!("/")))
-        {
-            return;
-        }
         if path.same(location().get(Key::Pathname)) && !url.get(Key::Hash).equal_text(lit!("")) {
-            if !anchor.closest(lit!(".toc")).is_null() && scroll_to_hash(url, !motion::reduced()) {
+            let contents = target.closest(lit!(".toc"));
+            if !contents.is_null() {
+                // The narrow layout lists its headings over the article.
+                contents.set(Key::Open, Arg::boolean(false));
+            }
+            // Contents entries, heading anchors and the top link all travel.
+            if scroll_to_hash(url, !motion::reduced()) {
                 event.call(Key::PreventDefault, &[]);
                 if !url.get(Key::Href).same(location().get(Key::Href)) {
                     push_url(&url);
@@ -315,6 +306,46 @@ impl App {
         if !url.get(Key::Href).same(location().get(Key::Href)) {
             self.navigate(url, true, false);
         }
+    }
+    // Fetch a page as soon as the pointer or a touch reaches its link, so the
+    // response is usually cached by the time the click arrives.
+    fn prefetch(&self, event: &Js) {
+        let target = target(event);
+        if target.is_null() {
+            return;
+        }
+        let url = page_link(target);
+        if url.is_null() {
+            return;
+        }
+        let path = url.get(Key::Pathname);
+        // The path marks a request in flight; it is tried once per visit.
+        if !self.pages.call(Key::Get, &[path.arg()]).is_null()
+            || !self.operations.call(Key::Get, &[path.arg()]).is_null()
+        {
+            return;
+        }
+        self.operations.call(Key::Set, &[path.arg(), url.arg()]);
+        self.load(url, motion::scalar(0), false);
+    }
+    // Request a page; its response is cached, and shown only while the
+    // returned token is still the current navigation.
+    fn load(&self, url: Js, position: f64, focus_search: bool) -> u32 {
+        let token = self.token();
+        self.operations.call(
+            Key::Set,
+            &[
+                Arg::integer(token),
+                Js::array(&[url.arg(), Arg::number(position), Arg::boolean(focus_search)]).arg(),
+            ],
+        );
+        window().request(
+            Key::Fetch,
+            url.get(Key::Pathname).arg(),
+            PAGE_RESPONSE,
+            token,
+        );
+        token
     }
     fn keydown(&self, event: &Js) {
         self.toc.cancel();
@@ -349,17 +380,9 @@ impl App {
         self.math_copy.detach();
         self.toc.cancel();
         self.record_scroll();
-        let contents = query(lit!("main .mobile-toc"));
-        if !contents.is_null() {
-            self.pages
-                .call(Key::Get, &[self.path.get().arg()])
-                .item(0)
-                .query(lit!(".mobile-toc"))
-                .set(Key::Open, contents.get(Key::Open).arg());
-        }
         let path = url.get(Key::Pathname);
-        let token = self.token();
-        self.navigation.set(token);
+        // No request has token zero: a navigation still waiting is superseded.
+        self.navigation.set(0);
         let cached = self.pages.call(Key::Get, &[path.arg()]);
         let position = if push {
             motion::scalar(0)
@@ -390,14 +413,7 @@ impl App {
         }
         required(lit!("#main-content")).set_attr(lit!("aria-busy"), lit!("true"));
         required(lit!("#navigation-status")).set_text(lit!("Loading page…"));
-        self.operations.call(
-            Key::Set,
-            &[
-                Arg::integer(token),
-                Js::array(&[url.arg(), Arg::number(position), Arg::boolean(focus_search)]).arg(),
-            ],
-        );
-        window().request(Key::Fetch, path.arg(), PAGE_RESPONSE, token);
+        self.navigation.set(self.load(url, position, focus_search));
     }
     fn page_ready(&self, token: u32, page: Js) {
         let request = self.operations.token_value(token);
@@ -550,6 +566,34 @@ impl App {
     }
 }
 
+// The URL of the link under an event target when it is one of this site's
+// pages; null for anything the browser should handle itself.
+fn page_link(target: Js) -> Js {
+    let anchor = target.closest(lit!("a[href]"));
+    if anchor.is_null() || anchor.has_attr(lit!("download")) {
+        return Js::null();
+    }
+    let target = anchor.get_attr(lit!("target"));
+    if !target.is_null() && !target.equal_text(lit!("")) && !target.equal_text(lit!("_self")) {
+        return Js::null();
+    }
+    let url = Js::construct(
+        Key::Url,
+        &[
+            anchor.get_attr(lit!("href")).arg(),
+            location().get(Key::Href).arg(),
+        ],
+    );
+    if !url.get(Key::Origin).same(location().get(Key::Origin))
+        || !url
+            .get(Key::Pathname)
+            .call_boolean(Key::EndsWith, Arg::literal(lit!("/")))
+    {
+        return Js::null();
+    }
+    url
+}
+
 fn article_link() -> Js {
     required(lit!("link[rel=canonical]")).get(Key::Href)
 }
@@ -596,21 +640,16 @@ fn push_url(url: &Js) {
 }
 fn scroll_to_hash(url: Js, smooth: bool) -> bool {
     let mut hash = url.get(Key::Hash);
-    let has_hash = !hash.equal_text(lit!(""));
     while hash.call_boolean(Key::StartsWith, Arg::literal(lit!("#"))) {
         hash = hash.call(Key::Slice, &[Arg::integer(1)]);
     }
-    if has_hash && let Ok(id) = window().try_call(Key::DecodeURIComponent, &[hash.arg()]) {
+    // No element has an empty id, so a URL without a fragment finds nothing.
+    if let Ok(id) = window().try_call(Key::DecodeURIComponent, &[hash.arg()]) {
         let element = document().call(Key::GetElementById, &[id.arg()]);
         if !element.is_null() {
             element.set_attr(lit!("tabindex"), lit!("-1"));
             browser::focus(&element);
-            if smooth {
-                app().toc.scroll_to(&element);
-            } else {
-                element.call(Key::ScrollIntoView, &[]);
-                app().toc.follow(&element);
-            }
+            app().toc.scroll_to(&element, smooth);
             return true;
         }
     }

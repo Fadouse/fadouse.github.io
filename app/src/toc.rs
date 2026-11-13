@@ -41,38 +41,37 @@ impl Default for Toc {
 }
 
 impl Toc {
-    pub fn scroll_to(&self, element: &Js) {
+    // Select an element and bring it into view: travelling when `smooth` and
+    // this page tracks headings (the tracker drives the motion), otherwise at
+    // once, with the finished scroll only holding the selection.
+    pub fn scroll_to(&self, element: &Js, smooth: bool) {
+        let smooth = smooth && self.count.get() != 0;
+        if !smooth {
+            element.call(Key::ScrollIntoView, &[]);
+        }
         let from = window().number(Key::ScrollY);
         let heading = from
             + element
                 .call(Key::GetBoundingClientRect, &[])
                 .number(Key::Top);
-        let to = (heading - motion::scalar(32)).max(motion::scalar(0)).min(
-            document()
-                .get(Key::DocumentElement)
-                .number(Key::ScrollHeight)
-                - window().number(Key::InnerHeight),
-        );
+        let mut started = motion::scalar(0);
+        let mut to = from;
+        if smooth {
+            started = now();
+            // The browser clamps an offset above the page; only the end
+            // needs limiting, so the motion stops where scrolling does.
+            to = (heading - motion::scalar(56)).min(
+                document()
+                    .get(Key::DocumentElement)
+                    .number(Key::ScrollHeight)
+                    - window().number(Key::InnerHeight),
+            );
+        }
         self.scroll.set(Some(Scroll {
-            started: now(),
+            started,
             from,
             to,
             heading: heading + motion::scalar(1),
-        }));
-        self.request();
-    }
-
-    pub fn follow(&self, element: &Js) {
-        let position = window().number(Key::ScrollY);
-        self.scroll.set(Some(Scroll {
-            started: now() - motion::scalar(180),
-            from: position,
-            to: position,
-            heading: position
-                + element
-                    .call(Key::GetBoundingClientRect, &[])
-                    .number(Key::Top)
-                + motion::scalar(1),
         }));
         self.request();
     }

@@ -175,8 +175,6 @@ impl MathCopy {
         self.cancel_copy();
         self.copy.set(token);
         button.set_text(lit!("Copying…"));
-        button.set_attr(lit!("aria-busy"), lit!("true"));
-        button.set_attr(lit!("aria-disabled"), lit!("true"));
         self.latex()
     }
 

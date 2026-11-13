@@ -44,7 +44,7 @@ pub fn frame(catalog: &Catalog, path: &str, body: &str) -> String {
 <header class="site-header{home_class}"><{brand_tag} id="brand-heading"><a href="/" class="brand"{brand_current}>{title}</a></{brand_tag}>
 <nav class="navigation" aria-label="Main navigation">{navigation}</nav></header>
 <main class="page" id="main-content" tabindex="-1"><div id="page-content" data-page="{path}">{body}</div></main>
-<footer class="site-footer"><div class="footer-links"><span>{title}</span><a href="/feed.xml">RSS ↗</a></div>
+<footer class="site-footer"><div class="footer-links"><a href="/feed.xml">RSS ↗</a></div>
 <div class="theme-picker" role="group" aria-label="Color theme"><button type="button" data-theme-choice="system" aria-pressed="true">System</button><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button></div></footer>
 </div><p class="sr-only" id="copy-status" aria-live="polite"></p><p class="sr-only" id="navigation-status" role="status"></p><div id="math-popover" class="math-popover" role="dialog" aria-label="LaTeX formula" popover="manual" inert><pre id="math-source" class="math-source"></pre><button type="button" class="math-copy" data-copy="math" aria-label="Copy LaTeX" aria-describedby="math-source">Copy LaTeX</button></div><template id="page-error"><div class="error-state" role="alert"><h1>Unable to load this page.</h1><p>Check your connection and try again.</p><button type="button" data-retry>Retry ↗</button></div></template>"##,
         search_url = escape(&catalog.search_url),
@@ -55,16 +55,17 @@ pub fn frame(catalog: &Catalog, path: &str, body: &str) -> String {
     )
 }
 
-fn heading(title: &str, detail: &str) -> String {
-    let detail = if detail.is_empty() {
-        String::new()
-    } else {
-        format!("<p>{}</p>", escape(detail))
-    };
+// A quiet label row: `title` is trusted markup, `detail` plain text.
+fn heading(tag: &str, title: &str, detail: &str) -> String {
     format!(
-        "<div class=\"section-heading\"><h1 dir=\"auto\">{}</h1>{detail}</div>",
-        escape(title)
+        "<div class=\"section-heading\"><{tag} dir=\"auto\">{title}</{tag}><p>{}</p></div>",
+        escape(detail)
     )
+}
+
+// The navigation already names these pages; keep the title for assistive tech.
+fn hidden_heading(title: &str) -> String {
+    format!("<h1 class=\"sr-only\">{title}</h1>")
 }
 
 fn count(count: usize, noun: &str) -> String {
@@ -170,15 +171,48 @@ fn profile(catalog: &Catalog) -> String {
     html
 }
 
+/// Estimated width of a title set on one line, in units of an average
+/// lowercase letter. The stylesheet sizes the masthead title from it, since
+/// CSS cannot measure text; the estimate only has to be roughly right, as a
+/// title that wraps once more than predicted still has room to grow.
+fn title_units(title: &str) -> f32 {
+    title
+        .chars()
+        .map(|character| match character {
+            ' ' | 'i' | 'j' | 'l' | 't' | 'f' | 'r' | 'I' | '.' | ',' | ':' | ';' | '\'' | '!'
+            | '|' | '(' | ')' | '[' | ']' | '-' => 0.6,
+            'm' | 'w' | 'M' | 'W' | '@' | '%' => 1.5,
+            'A'..='Z' => 1.2,
+            // CJK, kana, Hangul and full-width forms occupy a full em.
+            character if character as u32 >= 0x2E80 => 1.5,
+            _ => 1.0,
+        })
+        .sum::<f32>()
+        .max(1.0)
+}
+
 fn article(catalog: &Catalog, post: &CompiledPost, posts: &[CompiledPost], index: usize) -> String {
     let summary = &post.summary;
     let updated = summary
         .updated
         .as_ref()
-        .map(|date| format!(" · Updated <time datetime=\"{date}\">{date}</time>"))
+        .map(|date| {
+            // A revision mark and the date, without the year when it is the
+            // publication year; the full wording stays available to screen
+            // readers and as a tooltip.
+            let short = if date[..4] == summary.date[..4] {
+                &date[5..]
+            } else {
+                date.as_str()
+            };
+            format!(
+                " · <span class=\"sr-only\">Updated </span><time datetime=\"{date}\" title=\"Updated {date}\"><span aria-hidden=\"true\">↻ </span>{short}</time>"
+            )
+        })
         .unwrap_or_default();
     let mut html = format!(
-        r#"<header class="article-header"><p class="muted"><time datetime="{date}">{date}</time>{updated}</p><h1 dir="auto">{title}</h1>{tags}</header><div class="article-layout">"#,
+        r#"<header class="article-header" style="--title-units:{units:.1}"><p class="muted"><time datetime="{date}">{date}</time>{updated}</p><h1 dir="auto">{title}</h1>{tags}</header><div class="article-layout">"#,
+        units = title_units(&summary.title),
         date = summary.date,
         title = escape(&summary.title),
         tags = tags(&summary.tags)
@@ -204,7 +238,7 @@ fn article(catalog: &Catalog, post: &CompiledPost, posts: &[CompiledPost], index
     )
     .unwrap();
     let url = escape(&format!("{}{}", catalog.site.url, summary.path()));
-    write!(html, r#"<footer class="article-footer" aria-labelledby="share-heading"><h2 id="share-heading">Share this article</h2><div class="article-actions"><button type="button" data-share value="Share">Share</button><button type="button" data-copy="link" value="Copy link">Copy link</button></div><noscript><a href="{url}">Article link ↗</a></noscript></footer></div></div>"#).unwrap();
+    write!(html, r##"<footer class="article-footer" aria-labelledby="share-heading"><h2 id="share-heading" class="sr-only">Share this article</h2><div class="article-actions"><button type="button" data-share value="Share">Share</button><button type="button" data-copy="link" value="Copy link">Copy link</button></div><noscript><a href="{url}">Article link ↗</a></noscript><a class="top-link" href="#brand-heading">Top ↑</a></footer></div></div>"##).unwrap();
     if posts.len() > 1 {
         html.push_str("<nav class=\"post-pagination\" aria-label=\"More articles\"><div>");
         if let Some(older) = posts.get(index + 1) {
@@ -236,7 +270,7 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
     match path {
         "/" => profile(catalog),
         "/archive/" => {
-            let mut html = heading("Writing", &count(all.len(), "post"));
+            let mut html = hidden_heading("Writing");
             if all.is_empty() {
                 html.push_str(&post_list(&[]));
             }
@@ -248,13 +282,23 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
                         .iter()
                         .take_while(|post| post.date.starts_with(year))
                         .count();
-                write!(html, "<section class=\"year-group\"><h2 class=\"year-heading\">{year}</h2>{}</section>", post_list(&all[start..end])).unwrap();
+                write!(
+                    html,
+                    "<section class=\"year-group\">{}{}</section>",
+                    heading("h2", year, &count(end - start, "post")),
+                    post_list(&all[start..end])
+                )
+                .unwrap();
                 start = end;
             }
             html
         }
         "/tags/" => {
-            let mut html = heading("Tags", &count(catalog.tags.len(), "tag"));
+            let mut html = format!(
+                "{}<p class=\"section-heading\">{}</p>",
+                hidden_heading("Tags"),
+                count(catalog.tags.len(), "tag")
+            );
             if catalog.tags.is_empty() {
                 html.push_str("<p class=\"empty-state\">No tags yet.</p>");
             }
@@ -274,7 +318,7 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
         }
         "/search/" => format!(
             r#"{}<form class="search-form" role="search" action="/search/" method="get"><label for="search-input">Search titles, tags, and articles.</label><div class="search-field"><input id="search-input" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Type to search…"><button type="submit">Search →</button></div></form><div id="search-results"><p class="muted" role="status">Start with a word or phrase.</p></div><noscript><p>Enable JavaScript to search.</p></noscript><template id="search-error"><div class="error-state" role="alert"><h2>Unable to load search.</h2><p>Check your connection and try again.</p><button type="button" data-retry>Retry ↗</button></div></template><template id="search-layout"><p class="muted" role="status"></p><div class="search-results"></div></template><template id="search-entry"><article><h2 class="post-title" dir="auto"><a></a></h2><p dir="auto"></p></article></template>"#,
-            heading("Search", "")
+            hidden_heading("Search")
         ),
         _ => {
             if let Some((index, post)) = posts
@@ -290,13 +334,13 @@ pub fn page(catalog: &Catalog, posts: &[CompiledPost], path: &str) -> String {
                     .collect();
                 format!(
                     "{}{}",
-                    heading(&tag.name, &count(matching.len(), "post")),
+                    heading("h1", &tag_label(&tag.name), &count(matching.len(), "post")),
                     post_list(&matching)
                 )
             } else {
                 format!(
                     "{}<p>The page you requested does not exist.</p><a href=\"/\">Back to home →</a>",
-                    heading("Page not found", "404")
+                    heading("h1", "Page not found", "404")
                 )
             }
         }
